@@ -1,0 +1,377 @@
+\section{Approach}
+\label{sec:method}
+
+\subsection{Overview}
+Figure~\ref{fig:method-overview} presents the workflow of PyTT, our
+implementation of interprocedural type-state analysis. Its inputs are a
+Python repository, declared entries, dependency contracts, a Python
+semantic configuration, and exploration budgets. The top row constructs
+a call graph using pyflow~\cite{pyflow2026}, then analyzes functions in
+callee-first order. Recursive functions are grouped into strongly
+connected components; the topological order applies to the resulting
+component graph. This call graph remains fixed throughout the analysis.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{methodOverview.pdf}
+\caption{Overview of PyTT. A fixed call graph orders function analysis.
+For each function, Context-free Code Simplification supplies shared facts
+to PSTC Generation. A PSTC contains entry assertions ($P$), ordered path
+behavior, and exit assertions ($Q$). Type conflicts enter Type Conflict
+Analysis, which expands relevant callee paths and re-infers the resulting
+trace. Revised path contracts update callee PSTCs and dependent callers.}
+\Description{The top row connects a repository to call graph generation,
+a call graph, ordered function analysis, and bug reports. The bottom panel
+shows function code and callee PSTCs entering three phases. The first
+extracts and checks entry-independent code to supply type facts. The second
+extracts type paths and resolves their type constraints to form a PSTC.
+The third expands callee PSTCs and analyzes a conflict trace. Its outputs
+are bug reports or a missing path contract that feeds back to update the
+callee PSTC. A PSTC inset shows two entry, path, and exit cases, including
+an attribute changing from type B to C.}
+\label{fig:method-overview}
+\end{figure}
+
+The lower panel expands the analysis of one function into three phases.
+Function code and available \emph{callee PSTCs} supply the local and
+interprocedural information used in these phases. A \emph{path-sensitive
+type contract} (PSTC) is our representation of a function's type-state
+relations: each path contract connects entry assertions, ordered path
+behavior, and exit assertions. We define it in Section~\ref{sec:state-model}.
+
+\paragraph{Phase I: Context-free Code Simplification.}
+The analyzer separates computations whose type behavior can be determined
+without the unknown entry types and state from the remaining computations.
+It checks the extracted part and supplies type facts at their uses in the
+remaining code. In the figure, the available contract of \texttt{g} allows
+\texttt{v = g(c)} with \texttt{c = 1} to supply the fact \texttt{v: int}
+to the subsequent call \texttt{h(v, a)}. The extracted checks and effects
+remain part of the function's behavior.
+
+\paragraph{Phase II: PSTC Generation.}
+\emph{Type Path Extraction} obtains explicit paths through the dependent
+code. \emph{Type Constraint Resolution} combines their operations with
+shared type facts and callee PSTCs, using the LLM to propose implicit type
+alternatives and corresponding assertions. The analyzer assembles these
+relations with the ordered checks and effects. Inferred relations are used
+for propagation, and conflicts encountered during construction or
+composition are passed to the third phase.
+
+\paragraph{Phase III: Type Conflict Analysis.}
+\emph{Callee PSTC Expanding} selects the callee type paths relevant to a
+conflict and connects them to the caller's relevant behavior.
+\emph{Conflict Path Analysis} re-infers this expanded trace in its calling
+context. A confirmed incompatible behavior produces the corresponding
+error report. A missing or inaccurate relation instead yields a new or
+revised path contract, shown as \emph{Missing Path Contract} in the figure.
+The \emph{Update Callee PSTC} feedback revises the summary and re-enqueues
+affected callers. This feedback updates type-state relations and their
+dependent results on the fixed call graph.
+
+
+
+\subsection{Modeling Type-State Relations}
+\label{sec:state-model}
+\paragraph{Versioned state.}
+An analysis state is $A=(\Gamma,H,\phi)$. The environment $\Gamma$ maps
+scoped variable bindings to versioned value symbols. The heap $H$ records
+the presence, value, type, and reference information of object locations.
+The formula $\phi$ retains conditions and relations among symbols.
+An instance attribute is identified by $\operatorname{Field}(o,a)$, where
+$o$ is the object identity and $a$ the attribute name. Class attributes
+have locations associated with their class objects, separate from instance
+locations. Global bindings are qualified by their defining module.
+
+Assignment creates a fresh value version at the updated binding or
+location. A fact about the previous version remains a fact about that
+value, while subsequent reads use the new version. Reference information
+connects aliases to the same object identity. Presence distinguishes an
+absent attribute, a present attribute whose value is \texttt{None}, and
+unknown presence. Type terms include classes, subclass alternatives,
+container types, literal types, symbolic types, unions, and an unknown
+type. Semantic predicates describe relationships such as operand
+compatibility and the type of an operation's result.
+
+Alternative states retain complete relations. If an encoder choice is
+associated with a particular field update, each alternative keeps that
+association. This representation directly supports the distinction between
+the illustrated call and its text-encoder alternative in
+Section~\ref{sec:motivating-example}: the same field
+location receives different value versions under different encoder cases.
+
+\paragraph{Entries, events, and exits.}
+A PSTC represents function $f$ by a set of relation cases, called path
+contracts in Figure~\ref{fig:method-overview}:
+\begin{equation}
+\summary{f}=\{(p_i,m_i,q_i)\mid i\in I_f\}.
+\label{eq:summary}
+\end{equation}
+Here $p_i$ describes the incoming state and the case's applicability
+conditions. The ordered event graph $m_i$ retains guards, reads, writes,
+operation requirements, calls, and exceptional behavior. The assertion
+$q_i$ projects the normal exit onto the return value and caller-visible
+state. Cases also carry source locations, read/write footprints,
+dependency versions, coverage information, and evidence. A case ending
+in failure or at an exploration boundary retains its event prefix and a
+marker for the absence of a normal exit.
+
+The figure's $P$, Path, and $Q$ fields correspond to $p_i$, $m_i$, and
+$q_i$. In its first case, the incoming object \texttt{a} has type $A$ and
+its attribute has type $B$; the exit relates the same object to an attribute
+of type $C$ and a return value of type $T$. The Path field records the
+conditions and operations establishing that change. As in the Hoare
+triple introduced in Section~\ref{sec:hoare-background}, assertions connect
+states across execution. Here the retained event graph also exposes the
+checks and intermediate updates used for detection and refinement.
+
+The distinction between applicability and operation safety is essential
+for using the model. Entry matching selects a case applicable to the
+incoming state. A later event $\operatorname{check}(R)$ tests an operation
+requirement against the state immediately before that event and retains
+both its successful and failing successors. Result facts become available
+on the successful successor. Internal safety requirements therefore stay
+at their execution positions rather than becoming assumptions used to
+exclude an incoming call.
+
+For example, in \texttt{y = 1 + "x"; if flag: ...}, addition fails before
+the conditional is evaluated. Its failure prefix applies to both values
+of \texttt{flag}. Preserving that prefix makes the failure available to
+callers even though the function has no normal exit along this execution.
+Similarly, an exceptional exit carries writes performed before the failed
+operation.
+
+For the encoder example, let $\ell=\operatorname{Field}(o,\mathtt{body})$
+and let $e$ denote an exact instance of one of the shown encoder classes.
+For an incoming string, the normal effects include
+\begin{equation}
+\begin{aligned}
+\typeat{\ell_{\mathrm{in}}}&=\mathtt{str},\\
+\typeat{e}=\mathtt{TextEncoder}&\Rightarrow
+  \typeat{\ell_{\mathrm{out}}}=\mathtt{str},\\
+\typeat{e}=\mathtt{Utf8Encoder}&\Rightarrow
+  \typeat{\ell_{\mathrm{out}}}=\mathtt{bytes}.
+\end{aligned}
+\label{eq:encoder-effects}
+\end{equation}
+Both cases return \texttt{None}. Their event graphs retain the body guard,
+method call, and write establishing the effect. A further case of \texttt{encode\_message} preserves a bytes body
+when the helper's \texttt{isinstance(msg.body, str)} guard is false. The entry and exit assertions are
+thus endpoints of an ordered behavior relation.
+
+\subsection{Phase I: Context-free Code Simplification}
+\label{sec:extraction}
+\paragraph{Context-free Code Extraction.}
+The figure's term \emph{context-free} means independent of the unknown
+entry types and state. A computation belongs to this part, $C_I$, when
+local semantics and available callee PSTCs determine its type behavior
+without instantiating that unknown information. The remaining computations
+form the context-dependent part $C_D$, labeled \emph{Context-sensitive Code
+Snippet} in the figure. Dependence follows values, object state, guards,
+and callee effects. Both parts retain source positions and control
+dependencies for assembly in execution order.
+
+For the schematic function \texttt{f(a)}, the literal assignment
+\texttt{c = 1} establishes an integer input to \texttt{g}. The depicted
+callee contract has an integer entry and integer return, allowing the
+analyzer to determine the return type of \texttt{g(c)}. The subsequent
+call \texttt{h(v, a)} still depends on the unknown input \texttt{a}.
+The partition therefore separates the computation establishing
+\texttt{v: int} from the use that requires additional type alternatives.
+Its classification uses the callee's state dependencies and effects as
+well as its parameter and return types.
+
+\paragraph{Context-free Type Error Detection.}
+The analyzer checks $C_I$ using local operation semantics and applicable
+callee contracts. A successful operation supplies facts to its uses in
+$C_D$; a conflict enters Phase~III. Each supplied fact records its value
+or location version, condition, type relation, and supporting evidence.
+In the figure, \texttt{v: int} is supplied at the use of \texttt{v} in
+\texttt{h(v, a)}, allowing the computation of \texttt{g(c)} to be shared
+across the candidate behaviors of \texttt{a}.
+
+Entry-independent computations can contain branches, visible writes, and
+exceptions. Their conditions, checks, effects, and exceptional successors
+remain in the assembled relation. A result fact is supplied after its
+producing operation succeeds, and facts affected by an intervening write
+are updated at their later uses. Thus, simplification shares inference
+while retaining the execution behavior that determines each fact's validity.
+
+\subsection{Phase II: PSTC Generation}
+\label{sec:pstc-generation}
+\paragraph{Type Path Extraction.}
+The analyzer explores explicit source paths in $C_D$ within the configured
+bounds. Each template retains guards and operations in execution order,
+together with applicable facts from Phase~I. The \emph{Type Paths} shown
+in Figure~\ref{fig:method-overview} are these templates. A source path can
+support several implicit type behaviors: \texttt{x + y}, for example,
+can describe integer addition, string concatenation, or an operation
+implemented by repository classes. Resolving these alternatives associates
+each operand combination with its result and state effects.
+
+\paragraph{Type Constraint Resolution.}
+The LLM receives the explicit path, relevant use-site facts, repository
+type information, and available callee PSTCs. It proposes implicit
+input/output combinations and corresponding entry and exit assertions.
+The analyzer assembles them with the ordered checks and effects from both
+$C_I$ and $C_D$. Source paths determine the locations and ordering of the
+operations to which each candidate relation applies. Candidate records
+retain their inference context and source dependencies for subsequent
+inspection. The resulting cases constitute the function's PSTC.
+
+Inferred relations participate in propagation before conflict validation.
+At an input state not covered by the available cases, the analyzer requests
+supplementary analysis or retains an unresolved outcome. An operation or
+annotation conflict enters Phase~III, which expands and re-infers the
+relevant behavior in context. Uncovered inputs and conflicts therefore
+focus additional construction on the relations needed by current callers.
+
+\subsubsection{Call-site Composition and Operation Checks}
+\label{sec:composition}
+PSTC generation and application use the same call-site composition
+procedure. At each call, the analyzer evaluates the call target and arguments in
+source order and checks argument binding. It constructs a substitution
+$\theta$ from formal parameters, object references, and environment
+locations to the calling state. Internal symbols and newly allocated
+objects are fresh for each instantiation. When two arguments refer to the
+same actual object, the corresponding formal references retain that alias.
+
+For a case $(p_i,m_i,q_i)$, applicability is evaluated under
+\begin{equation}
+\operatorname{Facts}(A)\land\theta(p_i).
+\label{eq:applicability}
+\end{equation}
+The analyzer then processes $\theta(m_i)$ in event order. A guard refines
+the current condition. A read obtains the current version of its location.
+A write updates that location. An operation requirement is checked against
+the state established by the preceding events. The exit assertion projects
+the resulting return and shared state; it does not perform the updates a
+second time.
+
+A definite write to one location representing a single object creates a strong update.
+For several possible targets, a weak update retains the possible old and
+new contents. A previous location fact survives a call when that location
+is provably disjoint from the possible write footprint. An unknown write
+invalidates precise facts for the affected region. For example, after \texttt{a.prefix = b"x"} and
+\texttt{b.prefix = "y"}, reading \texttt{a.prefix} yields a string
+when \texttt{a is b}, but bytes when they are distinct ordinary objects.
+The actual alias binding thus determines the state of a subsequent use.
+
+For a requirement $R$ and the current facts $F$, the check examines the
+success condition $F\land R$ and the failure condition $F\land\neg R$.
+A supported failure alternative becomes a candidate conflict, associated
+with its source location and state dependencies. Indeterminate conditions
+remain unresolved. Subsequent events on a normal continuation use the
+success facts; exceptional continuations carry the state accumulated up
+to the failed event. Loop and recursive expansion follows the configured
+budgets and records the remaining frontier.
+
+For Figure~\ref{fig:motivating-example}, $\theta$ binds the helper's message
+object to the caller's message and its encoder to \texttt{Utf8Encoder}.
+The applicable case writes a bytes value to the body's new version.
+The final addition is checked using that version, producing the bytes/string
+conflict. The text-encoder case instead establishes a string version and
+satisfies the same operation requirement.
+
+\subsection{Phase III: Type Conflict Analysis}
+\label{sec:conflict-analysis}
+\paragraph{Callee PSTC Expanding.}
+A candidate conflict links an operation or annotation check to the relations
+supporting its judgment. Validation begins with those dependencies and
+reconstructs the relevant behavior in the current calling context.
+The expansion unit is a \emph{type path}: the ordered source behavior
+associated with a relation case's entry and exit assertions. Those
+assertions guide selection of the necessary callee paths on the fixed
+call graph.
+
+The analyzer follows the candidate's control, value, and alias dependencies
+to select callee cases. It connects their type paths to the relevant caller
+fragments, preserving conditions, operation requirements, writes, and
+exceptional control flow. The resulting \emph{error trace} supplies both
+the source behavior behind the disputed relation and the call-site-specific symbolic
+bindings of the calling context. This error trace corresponds to the
+figure's \emph{Conflict Trace}.
+
+\paragraph{Conflict Path Analysis.}
+The analyzer re-infers behavior over the expanded trace to determine
+whether the conflict persists and whether the propagated relation
+requires revision.
+
+The figure's \emph{Missing Path Contract} is a relation supplied by this
+analysis to supplement or correct the callee PSTC. Refinement can
+supplement an entry case, separate alias alternatives,
+restore a condition--effect association, or revise an inferred type
+combination. A correction derived for a particular calling condition keeps
+that condition. Revised summaries receive new dependency versions; results
+that use an older version are invalidated and the affected caller entries
+are re-enqueued. Analysis stops refining a candidate when its disposition
+is established, no new evidence is obtained, or the budget is exhausted.
+Algorithm~\ref{alg:analysis} summarizes this propagation and feedback.
+
+\begin{algorithm}[t]
+\caption{Propagation with conflict-driven relation refinement}
+\label{alg:analysis}
+\begin{algorithmic}[1]
+\Require Repository $P$, fixed call graph $G$, entries $E$, budgets $B$
+\Ensure Runtime reports, annotation-contract reports, and unresolved cases
+\State Initialize summaries and a callee-first worklist $W$ from $G,E$
+\While{$W\neq\emptyset$ and analysis budget remains}
+  \State Remove a function entry $(f,A)$ from $W$
+  \State Construct or supplement $\summary{f}$ using shared facts and type paths
+  \State Compose relations under $A$ and collect operation and annotation conflicts
+  \For{each candidate conflict $c$}
+    \State Trace supporting conditions, values, aliases, and callee cases
+    \State Expand relevant type paths in $G$ and re-infer in the calling context
+    \If{a supporting relation changes}
+      \State Revise its summary and invalidate dependent results
+      \State Enqueue affected caller entries in $W$
+    \EndIf
+    \State Classify $c$ using its error category and current evidence
+  \EndFor
+\EndWhile
+\State Retain remaining uncovered states and undecided candidates as unresolved
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Runtime type-error reports.}
+A runtime report requires evidence that the expanded trace reaches an
+operation with incompatible state and that its target protocol exception
+escapes the declared entry. For a repository entry, the trace includes
+the initialization and calls establishing the state; an open-entry report
+records its symbolic arguments and state assumptions. A handler that
+consumes the failure produces a handled-failure outcome. A corrected
+relation that removes the conflict produces a dismissed candidate.
+Insufficient evidence for either disposition produces an unresolved case.
+Reports retain the expanded trace, supplementary context, re-inference
+result, and exception disposition.
+
+\paragraph{Annotation-contract reports.}
+Existing annotations are checked against the requirements and effects
+inferred from function behavior. For an input annotation, the analysis
+examines whether the declared inputs are semantically compatible with the
+inferred requirements. For return and state declarations, it examines
+whether the inferred effects are compatible with the declared types.
+A conflict enters the same dependency tracing and contextual re-inference
+process. A confirmed report retains the declaration location, incompatible
+relation, and supporting behavioral evidence. Its confirmation concerns
+the declaration--behavior conflict and does not require a repository call
+that raises a runtime exception.
+
+\subsection{Reuse and Analysis Cost}
+\label{sec:reuse}
+Summary templates reuse extracted relations while freshening their internal
+symbols at each application. Reuse of an already instantiated result
+additionally matches the relevant entry state, aliases, call targets,
+semantic configuration, assumptions, remaining expansion bounds, and
+dependency versions. Cache keys include the transitive dependencies of
+reads, checks, and effects. Instances with unknown read/write footprints
+are recomputed. A cached failure is reconsidered under the current entry's
+reachability and exception context.
+
+The computational work comprises shared fact inference, path and type
+alternative construction, composition, conflict expansion, contextual
+re-inference, and dependency maintenance. Reuse acts at several of these
+points: independent facts serve multiple alternatives, event prefixes and
+callee templates serve multiple cases, and valid instances serve matching
+calls. Refinement revisits affected callers through explicit dependencies.
+Section~\ref{sec:rq2} measures the complete cost and compares these forms
+of reuse with direct function-body analysis.

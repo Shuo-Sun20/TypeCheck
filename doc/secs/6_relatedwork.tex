@@ -1,0 +1,53 @@
+\section{Related Work}
+\label{sec:relatedwork}
+\paragraph{Python type checking and type-error detection.}
+Python's annotation system supplies optional type declarations, and
+structural protocols describe behavior shared by different
+classes~\cite{pep484,pep544}. Checkers combine this interface information
+with inference and local narrowing~\cite{mypyTypeNarrowing,pythonTypeNarrowing}.
+Empirical studies examine how gradual typing affects checker behavior
+and which types are needed to describe dynamic
+objects~\cite{xu2023gradual,sun2023dynamicObjects}. Our analysis focuses
+on the state at an operation after preceding calls have changed shared
+locations. The relevant relation connects a calling condition to the
+particular update that reaches that operation.
+
+Pyinder is a close task-level comparison. It infers types, analyzes
+functions under parameter-type contexts, and aggregates and filters member
+types to identify Python type errors~\cite{oh2024pyinder}. We study a
+representation that keeps entry state, execution conditions, ordered
+requirements, and caller-visible updates together. Actual object bindings
+instantiate this representation at calls, while conflict dependencies
+identify the callee type paths used for re-inference. The whole-tool
+comparison measures detection outcomes; the controlled variants examine
+the roles of relation preservation and feedback.
+
+\paragraph{Type inference and generated annotations.}
+Annotation inference reconstructs interface types from code and repository
+context. PyTIR models entity dependencies and iteratively updates types
+and dependencies with checker feedback~\cite{sun2025pytir}. Its evaluation
+includes annotation accuracy and diagnostics introduced by generated
+annotations. Our target is the original program's operation behavior and
+existing annotation contracts. The state analysis uses a fixed pyflow
+call graph~\cite{pyflow2026}; refinement changes type-state relations and
+their dependent judgments. The inference-plus-checker baseline evaluates
+how annotation generation serves this detection task, separating original
+errors from generated-interface inconsistencies.
+
+\paragraph{Relational and compositional program analysis.}
+Hoare logic connects assertions at program entry and exit~\cite{hoare1969axiomatic}. Compositional symbolic execution
+reuses procedure behavior at calls~\cite{godefroid2007compositional}, while
+abstract interpretation provides a foundation for reasoning about program
+states and their relations~\cite{cousot1977abstract}. MOPSA applies abstract
+interpretation to Python type analysis, including state relations and
+control and exception behavior~\cite{monat2020python}.
+
+Our model uses these relational and compositional principles for Python
+type-error detection. Its cases preserve ordered checks and writes along
+with entry and exit assertions, so intermediate failure dependencies remain
+available during composition and refinement. The accompanying construction
+procedure shares entry-independent facts and proposes implicit type
+alternatives; detection revisits disputed alternatives through selectively
+expanded type paths. The comparison with failure-preserving relational
+summaries and direct body analysis evaluates these representation and
+construction choices under matched rules.

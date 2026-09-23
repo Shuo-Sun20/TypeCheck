@@ -1,0 +1,56 @@
+\section{Threats to Validity}
+\label{sec:threats}
+\paragraph{Construct validity.}
+Runtime type errors and annotation-contract errors measure different
+properties. An open-entry failure can describe an admissible symbolic
+calling state without establishing a failure reachable from a repository
+entry. Likewise, an annotation conflict need not cause a runtime exception
+in an existing call. Our category-specific metrics, declared entries, and
+cross-category links preserve these distinctions. Manual judgments about
+reachability, intended interfaces, duplicate root causes, and exception
+handling can affect precision. The source and behavioral evidence retained
+with each report make these judgments inspectable; the adjudication
+procedure is specified in Section~\ref{sec:setup}.
+
+\paragraph{Internal validity.}
+LLM-generated relations can omit legal type behaviors or introduce incorrect
+ones. Conflict-driven expansion checks disputed relations, but unresolved
+source semantics and incomplete context can still prevent a decision.
+The method does not establish soundness or completeness for arbitrary
+Python programs. The fixed pyflow call graph also bounds the callees
+available for propagation and expansion; a missing target cannot be
+recovered by revising a type-state relation alone. Dynamic attribute
+behavior, reflection, native extensions, unknown dependency effects, and
+bounded loop or recursive exploration can affect coverage. These cases
+retain unresolved or unsupported outcomes rather than being treated as
+confirmed absence of errors.
+
+Ablation differences can arise from semantic coverage or budget consumption
+as well as the representation being studied. Matched entries, rules, and
+confirmation criteria help isolate these factors. We retain the causes of
+undecided targets and compare intermediate failures in the relational and
+direct-body alternatives. Differences between tools' dependency models and
+supported Python features remain relevant to the whole-tool comparisons.
+
+\paragraph{External validity.}
+Public GitHub fixes emphasize errors that developers discovered and chose
+to repair. Repository selection, issue wording, dependency availability,
+and the required bug-fix pairing can therefore affect the sampled error
+distribution. The recent collection interval reduces exposure to older
+public examples but does not establish that the benchmark is absent from
+model training data. Model training cutoffs and corpus membership may be
+unknown. Independent discovery repositories test another setting, although
+their domains and selected entries still bound generalization.
+
+\paragraph{Conclusion validity.}
+Each experimental configuration is run three times, and effectiveness
+is reported using the best result. The selection metric, aggregation unit,
+and tie-breaking rule are xxx. This best-of-three protocol reports selected
+effectiveness rather than expected performance from a single run. It can favor methods with greater
+run-to-run variability and depends on the selection metric and aggregation
+unit. Consequently, the reported effectiveness cannot be interpreted as
+mean reliability. Retaining all run records and accounting for all three
+runs' cost exposes the associated variability and resource expenditure.
+The selected run's cost is recorded separately.
+Model revisions, decoding settings, and external service latency can also
+change outcomes and cost.

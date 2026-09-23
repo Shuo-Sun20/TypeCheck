@@ -1,0 +1,63 @@
+\subsection{A Call That Changes an Operation's Validity}
+\label{sec:motivating-example}
+Figure~\ref{fig:motivating-example} illustrates why type-error detection
+requires tracking the state established by a call. The \texttt{Message}
+class declares \texttt{body: str | bytes}. Both encoders accept a string. The \texttt{encode} method of the
+text encoder returns that string; the UTF-8 encoder returns bytes. The helper
+\texttt{encode\_message} writes the encoder's result back to the same
+message object and implicitly returns \texttt{None}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{motivatingExample.pdf}
+\caption{A call changes the type state used by a subsequent operation.
+Point 1 establishes a string body; point 2 relates the selected encoder to
+the field update; point 3 has a bytes body, making concatenation with a
+string fail. The lower-right panel reports the illustrated example's
+outcomes for Mypy, Pyrefly, Pyright, and our approach, PyTT.}
+\Description{The caller make_line raises ValueError when the message body
+is not a string. Otherwise it calls encode_message with Utf8Encoder, then
+passes msg.body plus a newline string to print. The helper writes the
+encoder result into msg.body. TextEncoder returns a string and Utf8Encoder
+returns bytes. Numbered points mark the string state before the call,
+the encoder-dependent update, and the bytes state after the call. The
+result panel shows no diagnostic for Mypy, Pyrefly, and Pyright and a type
+error detected by PyTT.}
+\label{fig:motivating-example}
+\end{figure}
+
+\paragraph{From the guard to the update.}
+In \texttt{make\_line}, a non-string body triggers \texttt{ValueError}.
+Every execution reaching point~1 has therefore passed the guard with a
+string body. The subsequent call supplies that message and a
+\texttt{Utf8Encoder} instance to the helper. At point~2, the helper's two
+encoder cases connect the input choice to different updates: the text
+encoder establishes a string body and the UTF-8 encoder establishes bytes.
+Both writes satisfy the field's union annotation. The relevant difference
+is the state that each call establishes for subsequent operations.
+
+\paragraph{From the update to the failure.}
+Instantiating the UTF-8 case at the shown call binds the helper's message
+to the caller's object. Consequently, point~3 contains a bytes body.
+The string fact at point~1 concerns the old contents and does not constrain
+the updated field. Evaluation of \texttt{msg.body + '\textbackslash n'}
+then raises \texttt{TypeError} before \texttt{print} is invoked. With
+\texttt{make\_line} as the analysis entry, that exception escapes the
+function. Using \texttt{TextEncoder} at the same call would instead
+establish a string body and permit the concatenation.
+
+This reasoning distinguishes three representations. The helper's return
+type, \texttt{None}, gives no description of the field update. A set of
+possible field types, \texttt{str | bytes}, captures the possible contents.
+A relation between the selected encoder, incoming body, and outgoing body
+identifies the contents established in the actual calling context.
+Preserving that relation lets the analyzer invalidate the old field fact
+and check the addition using its new value.
+
+The result panel in Figure~\ref{fig:motivating-example} identifies our
+approach as \emph{PyTT}. For the illustrated example, it records no
+diagnostic from Mypy, Pyrefly, or Pyright and a type error detected by PyTT;
+the associated tool versions and configurations are xxx. The mechanism
+illustrated by this result is the propagation of the encoder-dependent
+write to the operation that consumes the field. Section~\ref{sec:evaluation}
+evaluates detection across the benchmark under the stated configurations.

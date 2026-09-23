@@ -1,0 +1,274 @@
+\section{Evaluation}
+\label{sec:evaluation}
+We evaluate three questions: how effectively the analysis detects type
+errors (RQ1), how its mechanisms affect decisions and cost (RQ2), and what
+new errors it identifies in independent repositories (RQ3).
+
+\subsection{Experimental Setup}
+\label{sec:setup}
+\paragraph{Benchmark.}
+The historical benchmark contains xxx public GitHub bug-fix records from
+xxx Python repositories, collected over xxx. Each record identifies the
+buggy revision, its repaired revision, the target operation or annotation,
+and the evidence linking the change to the error. Table~\ref{tab:dataset}
+summarizes the corpus. The detector analyzes each revision separately using that revision's
+source and available dependencies. Patch descriptions, cross-revision
+comparisons, and issue metadata are reserved for assessment. The corpus emphasizes recent public type errors. We assign
+runtime and annotation-contract labels separately, retaining a link when
+a record exhibits both categories.
+
+A target's category and entry scope determine its eligibility. Runtime
+targets satisfy the protocol-failure definition in Section~\ref{sec:background};
+annotation targets concern the semantic compatibility of a declaration
+with behavior. For every tool, results retain the full benchmark denominator
+and the applicable-subset denominator. Unresolved targets, timeouts, and
+unsupported cases have separate counts.
+
+\begin{table}[t]
+\centering
+\caption{Benchmark composition. Category counts can overlap; unique records are counted once.}
+\label{tab:dataset}
+\begin{tabular}{lr}
+\toprule
+Characteristic & Count or value\\
+\midrule
+Historical repositories & xxx\\
+Unique bug-fix records & xxx\\
+Runtime type-error records & xxx\\
+Annotation-contract error records & xxx\\
+Records with both categories & xxx\\
+Collection interval & xxx\\
+Independent discovery repositories & xxx\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Baselines.}
+We compare Mypy, Pyright~\cite{pyright}, Pyrefly~\cite{pyrefly}, Pyinder,
+MOPSA on its supported subset,
+direct LLM detection, and annotation inference followed by a type checker.
+The checker baselines represent declared and inferred type checking;
+Pyinder addresses the same detection task~\cite{oh2024pyinder}; MOPSA
+provides a comparison with relational Python analysis~\cite{monat2020python}.
+The annotation pipeline uses xxx followed by xxx and evaluates errors in
+the original program separately from inconsistencies introduced by generated
+annotations. Direct LLM detection uses xxx with the entry and repository
+context specified by xxx. Tool versions and configurations are xxx.
+Mypy uses \texttt{--check-untyped-defs} for checking unannotated function
+bodies~\cite{mypyCommandLine}.
+
+\paragraph{Configuration.}
+The analysis uses LLM xxx, decoding configuration xxx, and prompts xxx.
+Python and dependency versions are xxx, pyflow revision xxx, and hardware
+xxx. Entry selection and dependency models are xxx. The limits for explicit
+paths, implicit type alternatives, loop/recursive unfolding, conflict
+refinement, and wall-clock time are xxx. The aggregation rule for completion, resolution, and outcome
+counts across runs is xxx. Cost accounting includes all runs. These settings apply to the comparisons below.
+
+\paragraph{Detection and precision.}
+Paired detection requires a target report in the buggy revision and removal
+of the corresponding conflict in the fixed revision, with both analyses
+complete and the fixed target semantically resolved. For runtime errors,
+the buggy outcome must satisfy the entry and exception-escape criteria.
+For annotation-contract errors, the repaired declaration or behavior must
+resolve the confirmed incompatibility. A fixed target that becomes
+unreachable requires reachability evidence. Let $N_k$ be the number of
+eligible records for category $k$ and $D_k$ its paired detections. We report
+$D_k/N_k$ together with the full-pool rate. A record in both categories
+contributes once to each category and once to any unique-record aggregate.
+
+Diagnostic precision is the fraction of reviewed reports confirmed as
+actual errors, including non-target errors. We report it separately for
+the two categories. Review follows the source, declared entry, repair or
+other behavioral evidence, and exception disposition; the adjudication
+procedure and reviewer agreement are xxx. Duplicate reports of the same
+root cause and category are grouped within a revision. Cross-category
+links are retained rather than counted as duplicate diagnoses.
+
+\paragraph{Resolution and cost.}
+Completion means the analysis process finishes within its resource limits;
+resolution means it establishes a target's semantic disposition. We report
+both, together with unresolved, timed-out, and unsupported targets.
+Total cost includes call-graph construction, fact and relation extraction,
+composition, LLM requests, trace expansion, re-inference, and caller
+reanalysis. Measurements include wall-clock time, peak memory, requests,
+tokens, summary applications, and expanded source size. Medians and tail
+latencies are computed over the explicitly identified completed set;
+timeouts retain their consumed budget in total-cost accounting.
+
+\subsection{RQ1: Detection Effectiveness}
+\label{sec:rq1}
+Table~\ref{tab:detection} reports paired detection and diagnostic precision
+by category. Our approach detects xxx runtime targets and xxx annotation
+contract targets, with precision of xxx\% and xxx\%, respectively. The
+corresponding full-pool paired rates are xxx\% and xxx\%.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{Detection effectiveness. Paired counts and precision (\%) are separated by error category. MOPSA uses its supported subset of xxx records, covering xxx\% of the full pool.}
+\label{tab:detection}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{Runtime} & \multicolumn{2}{c}{Annotation contract}\\
+Method & Paired & Precision & Paired & Precision\\
+\midrule
+Mypy & xxx & xxx & xxx & xxx\\
+Pyright & xxx & xxx & xxx & xxx\\
+Pyrefly & xxx & xxx & xxx & xxx\\
+Pyinder & xxx & xxx & xxx & xxx\\
+MOPSA (subset) & xxx & xxx & xxx & xxx\\
+Direct LLM & xxx & xxx & xxx & xxx\\
+Inference + checker & xxx & xxx & xxx & xxx\\
+Our approach & xxx & xxx & xxx & xxx\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:resolution} places detection beside resolution and cost.
+Our analysis completes xxx\% of revision analyses and resolves xxx\%
+of eligible targets. The unresolved, timed-out, and unsupported counts
+are xxx, xxx, and xxx. The median and 95th-percentile times are xxx and
+xxx seconds, and peak memory is xxx. Across all runs, the total number
+of LLM requests is xxx and token consumption is xxx.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Resolution and cost. U, T, and S denote unresolved, timed-out, and unsupported targets. Time is the median per revision in seconds; total cost includes all runs. Outcome counts follow the aggregation rule in Section~\ref{sec:setup}.}
+\label{tab:resolution}
+\begin{tabular}{lrrrrrr}
+\toprule
+Method & Resolved (\%) & U & T & S & Time & Total (h)\\
+\midrule
+Mypy & xxx & xxx & xxx & xxx & xxx & xxx\\
+Pyright & xxx & xxx & xxx & xxx & xxx & xxx\\
+Pyrefly & xxx & xxx & xxx & xxx & xxx & xxx\\
+Pyinder & xxx & xxx & xxx & xxx & xxx & xxx\\
+MOPSA (subset) & xxx & xxx & xxx & xxx & xxx & xxx\\
+Direct LLM & xxx & xxx & xxx & xxx & xxx & xxx\\
+Inference + checker & xxx & xxx & xxx & xxx & xxx & xxx\\
+Our approach & xxx & xxx & xxx & xxx & xxx & xxx\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We associate targets with the information needed to establish the checked
+state: input/return dependencies, condition--type relations, and attribute
+or global updates. These labels can overlap. For each differing outcome,
+we trace the operands and effects supporting the judgment. A difference
+is attributed to relation preservation when restoring the relation in a
+matched mechanism comparison changes the decision. The counts for these
+three dependence categories are xxx, xxx, and xxx; their respective paired
+detections are xxx, xxx, and xxx.
+
+\subsection{RQ2: Mechanism Effects and Cost}
+\label{sec:rq2}
+We compare controlled alternatives under the same entries, available
+repository facts, operation semantics, model configuration, and budgets.
+All variants use the same confirmation rules. Table~\ref{tab:variants}
+defines the interventions; Table~\ref{tab:mechanism-results} reports
+category-specific detections, unresolved targets, and total time.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Controlled mechanism comparisons. Each variant changes the named representation or procedure while retaining the common reporting criteria.}
+\label{tab:variants}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+Variant & Change\\
+\midrule
+Independent types & Project each case's location relations onto independent type sets.\\
+Merged paths & Join branch alternatives, removing condition--effect associations.\\
+Unknown effects & Replace potentially written shared-state contents by unknown values.\\
+Full-body construction & Construct relations from the whole function without separate entry-independent fact inference.\\
+No implicit alternatives & Disable additional LLM type-combination proposals while retaining symbolic requirements and repository facts.\\
+Relational summaries & Export intermediate states, normal/failure relations, and error locations; compose by linking intermediate symbols.\\
+Direct body analysis & Analyze callee bodies at calls using the same state and operation rules.\\
+No instance cache & Recompute instantiated results while retaining reusable summary templates.\\
+Full callee expansion & Re-infer complete relevant callee bodies instead of selectively expanded type paths.\\
+No dependency feedback & Assess initial candidates without revising summaries and reanalyzing dependent callers.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Mechanism results. Runtime and contract columns report paired detections for their respective error categories. Outcome counts follow the aggregation rule in Section~\ref{sec:setup}; total cost includes all runs.}
+\label{tab:mechanism-results}
+\begin{tabular}{lrrrr}
+\toprule
+Variant & Runtime & Contract & Unresolved & Total (h)\\
+\midrule
+Complete approach & xxx & xxx & xxx & xxx\\
+Independent types & xxx & xxx & xxx & xxx\\
+Merged paths & xxx & xxx & xxx & xxx\\
+Unknown effects & xxx & xxx & xxx & xxx\\
+Full-body construction & xxx & xxx & xxx & xxx\\
+No implicit alternatives & xxx & xxx & xxx & xxx\\
+Relational summaries & xxx & xxx & xxx & xxx\\
+Direct body analysis & xxx & xxx & xxx & xxx\\
+No instance cache & xxx & xxx & xxx & xxx\\
+Full callee expansion & xxx & xxx & xxx & xxx\\
+No dependency feedback & xxx & xxx & xxx & xxx\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{State and condition preservation.}
+Independent types, merged paths, and unknown effects isolate operand
+relations, branch correlations, and shared-state updates. Relative to the complete approach, their differences in paired runtime
+detection counts are xxx, xxx, and xxx; the corresponding differences in
+paired annotation-contract detection counts are xxx, xxx, and xxx. They
+change xxx, xxx, and xxx unresolved outcomes, respectively.
+Decision-level inspection links each change to the condition, value
+version, or object binding that reaches the target operation.
+
+\paragraph{Construction and reuse.}
+Full-body construction retains the same type candidates and source
+semantics, making the cost comparison sensitive to the reuse of
+entry-independent facts. Shared construction produces xxx use-site facts
+and consumes xxx seconds, compared with xxx seconds for full-body
+construction. Disabling implicit alternatives changes the number of
+represented type combinations by xxx. The corresponding differences in
+paired runtime and annotation-contract detection counts are xxx and xxx.
+The instance cache serves xxx\% of eligible applications. Direct body
+analysis is evaluated with and without instance caching; the corresponding
+total costs are xxx and xxx hours.
+
+\paragraph{Ordered relations and refinement.}
+The relational-summary comparison preserves intermediate failures and
+error locations, so it compares how check dependencies are represented
+and used. It produces xxx differing target decisions and xxx differing
+unresolved outcomes. The selective and full-callee expansion variants use
+the same re-inference procedure and contextual information. They expand
+xxx and xxx source statements per candidate and consume xxx and xxx
+seconds in conflict analysis. Dependency feedback changes xxx candidates
+from unresolved to decided, dismisses xxx candidates after relation
+correction, and establishes xxx runtime and xxx annotation-contract
+reports. These outcomes are recorded with the responsible summary revision
+and the affected caller judgment.
+
+\subsection{RQ3: New-Error Discovery}
+\label{sec:rq3}
+The discovery corpus contains xxx repositories independent of the
+historical benchmark, at revisions xxx. Their selection criteria and
+analysis entries are xxx. Reports are reviewed using the same category
+and evidence rules as the historical study. Across these repositories,
+our approach identifies xxx runtime type errors and xxx
+annotation-contract errors. Their diagnostic precision is xxx\% and
+xxx\%, respectively. The numbers with independent maintainer confirmation
+are xxx and xxx; the numbers without that confirmation are xxx and xxx.
+
+For each confirmed error, the evidence record associates the source
+location with the entry state, relevant calls, conditional updates, and
+conflicting requirement or declaration. The discovery results contain
+xxx errors involving attribute or global updates, xxx involving
+condition--type relations, and xxx involving input/return dependencies.
+Overlapping mechanism labels remain linked to the same error record.
+Total analysis time over all runs is xxx hours, including xxx hours
+of construction and xxx hours of conflict analysis and reanalysis.

@@ -1,0 +1,1201 @@
+1    Detecting Python Type Errors through Interprocedural
+2
+3
+     Type-State Analysis
+4
+     ANONYMOUS AUTHOR(S)
+5
+6    Python type errors depend on the state in which an operation executes. A function call can change the type
+7    of an object attribute or a global variable, making a previously valid operation incompatible with the updated
+8    state. Detecting such errors requires connecting input conditions to the state changes established across
+9    calls. We present an interprocedural type-state analysis for Python type-error detection. Its central model
+10
+     relates function entries to ordered operation requirements, state updates, and exits, preserving both condi-
+     tional effects and intermediate failures. The analysis constructs these relations by sharing facts independent
+11
+     of unknown entry types and using a large language model to propose implicit type alternatives. At each call,
+12
+     it instantiates object identities and propagates the corresponding state changes. A conflict triggers selective
+13
+     expansion of the relevant callee type paths and contextual re-inference; revised relations then update depen-
+14   dent callers. The analysis separately reports runtime type errors and annotation-contract errors. We evaluate
+15   paired detection on xxx recent GitHub bug-fix records, diagnostic precision, component effects, and total
+16   analysis cost. The best of three runs yields xxx paired runtime detections and xxx paired annotation-contract
+17   detections, with respective diagnostic precision of xxx% and xxx%.
+18
+     Additional Key Words and Phrases: Python, type errors, type-state relations, interprocedural analysis, func-
+19
+     tion summaries
+20
+21
+22   1 Introduction
+23   Python programs rely on dynamic typing to express computations over objects with different
+24   implementations. The operations performed on these objects impose requirements on their types
+25   and supported protocols. When an execution violates those requirements, an operation can fail
+26   at runtime. Detecting these failures before execution is therefore an important task for Python
+27   software analysis. Type annotations provide interfaces for static checking [19], while duck typing
+28   allows code to operate on objects through their behavior [5, 15]. A detector must connect this
+29   behavior to the program state at each operation.
+30      Existing work provides several foundations for this task. Static type checkers propagate declared
+31   and inferred types and refine them under control-flow conditions [10, 16]. Pyinder combines au-
+32   tomatic type inference, type-based calling contexts, and member-type analysis to detect Python
+33   type errors [11]. Annotation inference supplies another source of type information. For example,
+34   PyTIR infers repository-level annotations by resolving dependencies among program entities and
+35   correcting type-checker conflicts [18]. These developments improve the information available for
+36   checking Python programs and motivate examining how that information describes execution.
+37      A central difficulty is that type state changes during execution. A branch can establish that an at-
+38   tribute contains a string, while a subsequent helper call replaces that string with bytes. The helper’s
+39   return type may remain None, and the attribute declaration may permit both types. Nevertheless, a
+40   later string concatenation has become invalid. The same operation can thus be valid before the call
+41   and invalid afterward. When the update also depends on a branch condition or the selected callee,
+42   its effect must remain associated with that condition. Recording the possible types of parameters,
+43   returns, and attributes independently does not preserve which state a particular call establishes.
+44   The gap concerns how changing type states affect error judgments across procedure boundaries.
+45      We study how to detect Python type errors by modeling type state and tracking its changes
+46   interprocedurally. Our approach relates the state supplied to a function to the state established
+47   by its execution, then uses that relation to check subsequent operations. This requires addressing
+48   three challenges.
+49
+     2                                                                                              Anon.
+
+
+50      Modeling type-state changes across calls. The representation must connect the same object loca-
+51   tions before and after a call, retain the conditions governing their updates, and expose the oper-
+52   ation requirements encountered along the way. Normal entry–exit relations describe successful
+53   effects, whereas error detection also needs the state preceding an intermediate failure. A useful
+54   model must preserve both the relation between conditions and effects and the order in which
+55   checks and updates occur.
+56
+57      Extracting relations from implicit type behavior. For a function with unknown inputs, one source
+58   operation can admit several type combinations. Addition, for example, can represent integer arith-
+59   metic, string concatenation, or a repository-defined operation. Each combination can establish
+60   different output types and state effects. The extraction procedure must recover these alternatives
+61   while reusing computations whose type behavior is independent of the unknown inputs.
+62
+        Detecting errors from propagated relations. At a call, the analyzer must bind formal objects to ac-
+63
+     tual objects, propagate applicable effects, and check operations against the state that immediately
+64
+     precedes them. A resulting conflict requires examining whether the inferred relation accurately
+65
+     captures the relevant execution. This requires connecting the conflicting operation to the condi-
+66
+     tions, writes, and callee behavior that produced its operands, and updating dependent judgments
+67
+     when that relation changes.
+68
+        We address these challenges with a type-state relation model and an analysis built around that
+69
+     model, implemented in PyTT. A function summary connects entry conditions, an ordered event
+70
+     graph, and projected exit states. Events retain guards, operation requirements, state updates, calls,
+71
+     and exception behavior. To construct summaries, the analyzer shares entry-independent facts and
+72
+     uses a large language model (LLM) to propose implicit type alternatives within explicit source
+73
+     paths. It then composes summaries at calls on a fixed call graph constructed using pyflow. Inferred
+74
+     relations participate in propagation immediately. When an operation or annotation check produces
+75
+     a conflict, the analyzer expands the necessary callee type paths, reconstructs the relevant error
+76
+     trace, and re-infers their behavior in context. Relation revisions invalidate dependent results and
+77
+     trigger reanalysis of affected callers.
+78
+        The analysis distinguishes two report categories. A runtime type-error report identifies an in-
+79
+     compatible operation whose protocol exception escapes the declared analysis entry. An annotation-
+80
+     contract error identifies a verified semantic conflict between an existing annotation and the re-
+81
+     quirements or effects inferred from function behavior. The latter is an interface inconsistency and
+82
+     is reported independently of a reachable failing call in the repository.
+83
+        Our evaluation examines recent public GitHub bug-fix records, controlled mechanism compar-
+84
+     isons, and new-error discovery in independent repositories. We measure paired detection on buggy
+85
+     and fixed revisions, diagnostic precision for each error category, unresolved outcomes, and com-
+86
+     plete analysis cost. On xxx records from xxx repositories, the best of three runs produces xxx
+87
+     paired runtime type-error detections and xxx paired annotation-contract error detections. Compo-
+88
+     nent comparisons quantify the contributions of relation preservation, shared construction, call-site
+89
+     composition, and conflict-driven refinement.
+90
+        The contributions are as follows:
+91
+92        • A type-state relation model for Python type-error detection that connects versioned vari-
+93          ables and object locations with conditional updates, ordered operation requirements, and
+94          failure prefixes.
+95        • An interprocedural detection method that constructs and composes these relations. It re-
+96          fines conflicts by selectively expanding error traces, re-inferring behavior in context, and
+97          reanalyzing affected callers.
+98
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                               3
+
+
+99          • An empirical evaluation of detection effectiveness, diagnostic precision, mechanism effects,
+100           and total analysis cost on historical errors and independent Python repositories.
+101
+102   2 Background and Motivating Example
+103   2.1   Dynamic Typing and Mutable State in Python
+104
+      Python associates a type with each object, while a name can be rebound to objects of different types
+105
+      during execution [13, 14]. Attribute assignment similarly changes the value stored at an object
+106
+      location. When several references designate the same object, an update through one reference
+107
+      affects subsequent accesses through the others. A call can therefore change the types encountered
+108
+      by its caller through both its return value and updates to shared objects or global bindings.
+109
+         Duck typing determines whether an operation is applicable from the behavior supported by
+110
+      its operands [15]. The runtime objects and their classes determine method lookup and operator
+111
+      dispatch. Different classes can support the same operation with different result types and state
+112
+      effects. For example, two encoder objects can both provide an encode method while returning
+113
+      a string and bytes, respectively. Type annotations declare interfaces for static checking [19]; an
+114
+      annotation allowing both return types or field types still leaves the actual type at a particular use
+115
+      dependent on the preceding execution.
+116
+         We use type state for the type information about relevant bindings and object locations at a
+117
+      program point, together with the relations needed to judge an operation. These relations include
+118
+      branch conditions and object identity. A type-state transition describes the change caused by a
+119
+      statement or call. A function’s type-state relation connects its input state and execution conditions
+120
+      to its return value and caller-visible updates. Flow sensitivity tracks changes between program
+121
+      points; path sensitivity retains the association between conditions and the states they establish. If
+122
+      prepare(obj, binary) writes bytes when binary is true and a string otherwise, a later string
+123
+      operation under not binary uses the effect associated with that condition.
+124
+125   2.2   Hoare Triples and State Relations
+126
+      Hoare logic expresses a program’s behavior using assertions about its state [4, 12]. A triple
+127
+128
+                                                          {𝑃} 𝐶 {𝑄}                                        (1)
+129   contains a precondition 𝑃 , a command 𝐶 , and a postcondition 𝑄 . Under partial correctness, every
+130   execution of 𝐶 that starts in a state satisfying 𝑃 and terminates normally ends in a state satisfying 𝑄 .
+131   The judgment does not require termination. Assertions can describe types, values, object identities,
+132   and relations between locations. For example, with 𝑜 denoting the object referenced by msg, an
+133   encoding command can relate a string in Field(𝑜, body) before the call to bytes in that same location
+134   afterward.
+135      The composition principle connects commands through an intermediate assertion: {𝑃} 𝐶1 {𝑅}
+136   and {𝑅} 𝐶2 {𝑄} support reasoning about 𝐶1 ; 𝐶2 from 𝑃 to 𝑄 . At a function call, this requires in-
+137   stantiating the callee’s assertions with the caller’s arguments and object identities. The resulting
+138   assertion supplies the state in which the next operation is checked.
+139      Our representation uses this assertion-based view to connect function entries and exits, while
+140   retaining the intervening operations as an ordered event graph. A case (𝑝, 𝑚, 𝑞) contains an entry
+141   applicability assertion 𝑝 , ordered behavior 𝑚, and a projected normal-exit assertion 𝑞 . The behavior
+142   records the checks and updates that establish the exit, including prefixes ending in an operation
+143   failure. This makes intermediate states and their supporting operations available to the detection
+144   and refinement procedures in Section 3. Entry applicability and internal operation requirements
+145   serve distinct roles: the former selects a relation case, and the latter is checked against the state at
+146   its execution point.
+147
+      4                                                                                                      Anon.
+
+
+148   2.3     Type-Error Categories and Analysis Entries
+149
+      An operation requirement follows from the semantics of the executed operation, such as com-
+150
+      patible operands for addition or a callable receiver with valid argument binding. An annotation
+151
+      declares an interface against which inferred behavior can be checked. Runtime type errors con-
+152
+      cern operation failures; annotation-contract errors concern semantic incompatibility between a
+153
+      declaration and behavior. Each category has its own confirmation rule in Section 3.5.
+154
+         The analysis takes declared entries. An open function entry supplies symbolic arguments and
+155
+      relevant object and environment state; its input requirements are inferred from function behavior.
+156
+      A repository entry includes the initialization and calling sequence establishing that state. Reports
+157
+      identify the entry under which a conflict is checked. The targeted runtime failures involve incom-
+158
+      patible operands, invalid argument binding, non-callable objects, missing modeled attributes, and
+159
+      unsupported iteration or indexing protocols. Exception propagation is part of the judgment: a
+160
+      protocol failure handled within the entry is recorded as a handled failure.
+161
+162   2.4     A Call That Changes an Operation’s Validity
+163
+      Figure 1 illustrates why type-error detection requires tracking the state established by a call. The
+164
+      Message class declares body: str | bytes. Both encoders accept a string. The encode method of
+165
+      the text encoder returns that string; the UTF-8 encoder returns bytes. The helper encode_message
+166
+      writes the encoder’s result back to the same message object and implicitly returns None.
+167
+168
+169       Function with Type Error                             Related Classes
+170       def make_line(msg:Message):                          class Message:
+171         if not isinstance(msg.body, str):                      body: str | bytes
+              raise ValueError("...")
+172
+          1 #msg.body: str                                     class TextEncoder:
+173         encode_message(msg, Utf8Encoder())                     def encode(self, text: str) -> str:
+174       3 #msg.body: bytes                                           return text
+175         print(msg.body + '\n')
+            #TypeError: can't concat str to bytes              class Utf8Encoder:
+176
+                                                                   def encode(self, text: str) -> bytes:
+177       Function with Complex Type Transformation
+                                                                       return text.encode("utf-8")
+178       def encode_message(msg: Message,
+                    encoder:TextEncoder|Utf8Encoder):
+179                                                            Detection Results
+            if isinstance(msg.body, str):
+180           msg.body = encoder.encode(msg.body)
+                                                                Mypy, Pyrefly, Pyright: No diagnostic
+181         2 #encoder: TextEncoder => msg.body: str
+182           #encoder: Utf8Encoder => msg.body: bytes          PyTT: Type error detected
+183
+184   Fig. 1. A call changes the type state used by a subsequent operation. Point 1 establishes a string body; point
+185   2 relates the selected encoder to the field update; point 3 has a bytes body, making concatenation with a
+186   string fail. The lower-right panel reports the illustrated example’s outcomes for Mypy, Pyrefly, Pyright, and
+187   our approach, PyTT.
+188
+189
+190     From the guard to the update. In make_line, a non-string body triggers ValueError. Every ex-
+191   ecution reaching point 1 has therefore passed the guard with a string body. The subsequent call
+192   supplies that message and a Utf8Encoder instance to the helper. At point 2, the helper’s two en-
+193   coder cases connect the input choice to different updates: the text encoder establishes a string
+194   body and the UTF-8 encoder establishes bytes. Both writes satisfy the field’s union annotation.
+195   The relevant difference is the state that each call establishes for subsequent operations.
+196
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                             5
+
+
+197      From the update to the failure. Instantiating the UTF-8 case at the shown call binds the helper’s
+198   message to the caller’s object. Consequently, point 3 contains a bytes body. The string fact at point 1
+199   concerns the old contents and does not constrain the updated field. Evaluation of msg.body +
+200   '\n' then raises TypeError before print is invoked. With make_line as the analysis entry, that
+201   exception escapes the function. Using TextEncoder at the same call would instead establish a
+202   string body and permit the concatenation.
+203      This reasoning distinguishes three representations. The helper’s return type, None, gives no de-
+204   scription of the field update. A set of possible field types, str | bytes, captures the possible
+205   contents. A relation between the selected encoder, incoming body, and outgoing body identifies
+206   the contents established in the actual calling context. Preserving that relation lets the analyzer
+207   invalidate the old field fact and check the addition using its new value.
+208      The result panel in Figure 1 identifies our approach as PyTT. For the illustrated example, it
+209   records no diagnostic from Mypy, Pyrefly, or Pyright and a type error detected by PyTT; the as-
+210   sociated tool versions and configurations are xxx. The mechanism illustrated by this result is the
+211   propagation of the encoder-dependent write to the operation that consumes the field. Section 4
+212   evaluates detection across the benchmark under the stated configurations.
+213
+214   3 Approach
+215   3.1   Overview
+216
+      Figure 2 presents the workflow of PyTT, our implementation of interprocedural type-state analy-
+217
+      sis. Its inputs are a Python repository, declared entries, dependency contracts, a Python semantic
+218
+      configuration, and exploration budgets. The top row constructs a call graph using pyflow [3], then
+219
+      analyzes functions in callee-first order. Recursive functions are grouped into strongly connected
+220
+      components; the topological order applies to the resulting component graph. This call graph re-
+221
+      mains fixed throughout the analysis.
+222
+         The lower panel expands the analysis of one function into three phases. Function code and
+223
+      available callee PSTCs supply the local and interprocedural information used in these phases. A
+224
+      path-sensitive type contract (PSTC) is our representation of a function’s type-state relations: each
+225
+      path contract connects entry assertions, ordered path behavior, and exit assertions. We define it
+226
+      in Section 3.2.
+227
+228      Phase I: Context-free Code Simplification. The analyzer separates computations whose type be-
+229   havior can be determined without the unknown entry types and state from the remaining compu-
+230   tations. It checks the extracted part and supplies type facts at their uses in the remaining code. In
+231   the figure, the available contract of g allows v = g(c) with c = 1 to supply the fact v: int to the
+232   subsequent call h(v, a). The extracted checks and effects remain part of the function’s behavior.
+233
+        Phase II: PSTC Generation. Type Path Extraction obtains explicit paths through the dependent
+234
+      code. Type Constraint Resolution combines their operations with shared type facts and callee PSTCs,
+235
+      using the LLM to propose implicit type alternatives and corresponding assertions. The analyzer
+236
+      assembles these relations with the ordered checks and effects. Inferred relations are used for prop-
+237
+      agation, and conflicts encountered during construction or composition are passed to the third
+238
+      phase.
+239
+240      Phase III: Type Conflict Analysis. Callee PSTC Expanding selects the callee type paths relevant
+241   to a conflict and connects them to the caller’s relevant behavior. Conflict Path Analysis re-infers
+242   this expanded trace in its calling context. A confirmed incompatible behavior produces the cor-
+243   responding error report. A missing or inaccurate relation instead yields a new or revised path
+244   contract, shown as Missing Path Contract in the figure. The Update Callee PSTC feedback revises
+245
+      6                                                                                                                                                                             Anon.
+
+
+246           def g()：
+                                                                                             ff     ⋯                                                                  g()：
+              ......                                                                                                                                                   ......
+247           def f(a):
+                                                  Call Graph                                                            Topological-ordered                            f(a):
+              ......                              Generation                                 g      h                    Function Analysis                             ......
+248
+          Repository                                                                       Call Graph                                                                Bug Reports
+249
+250                                           1 Context-free                                      2 PSTC Generation                                Path Contract 1
+          Function Analysis                                                                                                      P-1              Path-1         Q-1
+                                             Code Simplification
+251                                                                                                                           a: A           condition: ...   return: T
+                                                                             def f(a)：               Type Path                a.attr: B      statements:[...] a.attr: C
+252              def f(a)：                    Context-free Code              c=1
+                                                                                                     Extraction
+                 c=1                                                         v=g(c)
+                 v=g(c)                          Extraction                  ret h(v,a)                                                            Path Contract 2
+253              ret h(v,a)                                                                               Path-2
+                                                                                                                                   P-2                 Path-2           Q-2
+                                                               P-g      Context-sensitive               Path-1                     …                      …               …
+                                                 def f(a)：                                           condition:  ...
+254       Function Code                          c=1          Param1:
+                                                                         Code Snippet              condition:  ...
+                                                                                                     statements:[...]
+                                                                                                                            Path-Sensitive Type Contract (PSTC)
+                                                                int                                statements:[...]
+                                                 v=g(c)
+255                                              ret h(v,a)    Q-g
+                                                              ret:int
+                                                                                                        Type Paths
+                     Path Contract 1
+
+256       g                                      Context-free                 def f(a)：
+                 P        Path     Q
+                                                                              c=1                  Type Constraint             3   Type Conflict Analysis
+                           ...                   Code Snippet                 v:int
+                                                                              v=g(c)
+257                                                                           ret h(v,a)             Resolution
+                                                                                                                                         Callee PSTC
+                     Path Contract 1          Context-free Type             Type Facts                                                   Expanding
+258
+          h      P        Path     Q
+                                               Error Detection                                            f(a):                                                                 f(a):
+                           ...
+259                                                                                                                            Conflict    f(a):      Path-h
+                                                                                                                                                       ...
+
+260       Callee PSTC                                                                               Type Conflicts               Trace                Path-g
+                                                                                                                                                       ...
+
+
+261                                                                                                                                      Conflict Path
+                                 Update Callee PSTC                              P          Path            Q
+262                                                                                                                                        Analysis
+                                                                                  Missing Path Contract
+263
+264
+265   Fig. 2. Overview of PyTT. A fixed call graph orders function analysis. For each function, Context-free Code
+266
+      Simplification supplies shared facts to PSTC Generation. A PSTC contains entry assertions (𝑃 ), ordered path
+      behavior, and exit assertions (𝑄 ). Type conflicts enter Type Conflict Analysis, which expands relevant callee
+267
+      paths and re-infers the resulting trace. Revised path contracts update callee PSTCs and dependent callers.
+268
+269
+270
+271
+272   the summary and re-enqueues affected callers. This feedback updates type-state relations and their
+273   dependent results on the fixed call graph.
+274
+275
+      3.2         Modeling Type-State Relations
+276
+277      Versioned state. An analysis state is 𝐴 = (Γ, 𝐻 , 𝜙). The environment Γ maps scoped variable
+278   bindings to versioned value symbols. The heap 𝐻 records the presence, value, type, and reference
+279   information of object locations. The formula 𝜙 retains conditions and relations among symbols.
+280   An instance attribute is identified by Field(𝑜, 𝑎), where 𝑜 is the object identity and 𝑎 the attribute
+281   name. Class attributes have locations associated with their class objects, separate from instance
+282   locations. Global bindings are qualified by their defining module.
+283      Assignment creates a fresh value version at the updated binding or location. A fact about the
+284   previous version remains a fact about that value, while subsequent reads use the new version. Ref-
+285   erence information connects aliases to the same object identity. Presence distinguishes an absent
+286   attribute, a present attribute whose value is None, and unknown presence. Type terms include
+287   classes, subclass alternatives, container types, literal types, symbolic types, unions, and an un-
+288   known type. Semantic predicates describe relationships such as operand compatibility and the
+289   type of an operation’s result.
+290      Alternative states retain complete relations. If an encoder choice is associated with a particular
+291   field update, each alternative keeps that association. This representation directly supports the dis-
+292   tinction between the illustrated call and its text-encoder alternative in Section 2.4: the same field
+293   location receives different value versions under different encoder cases.
+294
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                                    7
+
+
+295     Entries, events, and exits. A PSTC represents function 𝑓 by a set of relation cases, called path
+296   contracts in Figure 2:
+297                                       𝒮𝑓 = {(𝑝𝑖 , 𝑚𝑖 , 𝑞𝑖 ) ∣ 𝑖 ∈ 𝐼𝑓 }.                           (2)
+298
+      Here 𝑝𝑖 describes the incoming state and the case’s applicability conditions. The ordered event
+299
+      graph 𝑚𝑖 retains guards, reads, writes, operation requirements, calls, and exceptional behavior. The
+300
+      assertion 𝑞𝑖 projects the normal exit onto the return value and caller-visible state. Cases also carry
+301
+      source locations, read/write footprints, dependency versions, coverage information, and evidence.
+302
+      A case ending in failure or at an exploration boundary retains its event prefix and a marker for the
+303
+      absence of a normal exit.
+304
+         The figure’s 𝑃 , Path, and 𝑄 fields correspond to 𝑝𝑖 , 𝑚𝑖 , and 𝑞𝑖 . In its first case, the incoming object
+305
+      a has type 𝐴 and its attribute has type 𝐵; the exit relates the same object to an attribute of type 𝐶
+306
+      and a return value of type 𝑇 . The Path field records the conditions and operations establishing that
+307
+      change. As in the Hoare triple introduced in Section 2.2, assertions connect states across execution.
+308
+      Here the retained event graph also exposes the checks and intermediate updates used for detection
+309
+      and refinement.
+310
+         The distinction between applicability and operation safety is essential for using the model. Entry
+311
+      matching selects a case applicable to the incoming state. A later event check(𝑅) tests an operation
+312
+      requirement against the state immediately before that event and retains both its successful and
+313
+      failing successors. Result facts become available on the successful successor. Internal safety re-
+314
+      quirements therefore stay at their execution positions rather than becoming assumptions used to
+315
+      exclude an incoming call.
+316
+         For example, in y = 1 + "x"; if flag: ..., addition fails before the conditional is evaluated.
+317
+      Its failure prefix applies to both values of flag. Preserving that prefix makes the failure available to
+318
+      callers even though the function has no normal exit along this execution. Similarly, an exceptional
+319
+      exit carries writes performed before the failed operation.
+320
+         For the encoder example, let ℓ = Field(𝑜, body) and let 𝑒 denote an exact instance of one of the
+321
+      shown encoder classes. For an incoming string, the normal effects include
+322
+323                                                      𝜏 (ℓin ) = str,
+324                                    𝜏 (𝑒) = TextEncoder ⇒ 𝜏 (ℓout ) = str,                                   (3)
+325
+                                       𝜏 (𝑒) = Utf8Encoder ⇒ 𝜏 (ℓout ) = bytes.
+326
+327   Both cases return None. Their event graphs retain the body guard, method call, and write estab-
+328   lishing the effect. A further case of encode_message preserves a bytes body when the helper’s
+329   isinstance(msg.body, str) guard is false. The entry and exit assertions are thus endpoints of
+330   an ordered behavior relation.
+331
+332   3.3   Phase I: Context-free Code Simplification
+333      Context-free Code Extraction. The figure’s term context-free means independent of the unknown
+334   entry types and state. A computation belongs to this part, 𝐶𝐼 , when local semantics and available
+335   callee PSTCs determine its type behavior without instantiating that unknown information. The re-
+336   maining computations form the context-dependent part 𝐶𝐷 , labeled Context-sensitive Code Snippet
+337   in the figure. Dependence follows values, object state, guards, and callee effects. Both parts retain
+338   source positions and control dependencies for assembly in execution order.
+339      For the schematic function f(a), the literal assignment c = 1 establishes an integer input to
+340   g. The depicted callee contract has an integer entry and integer return, allowing the analyzer to
+341   determine the return type of g(c). The subsequent call h(v, a) still depends on the unknown input
+342   a. The partition therefore separates the computation establishing v: int from the use that requires
+343
+      8                                                                                                  Anon.
+
+
+344   additional type alternatives. Its classification uses the callee’s state dependencies and effects as well
+345   as its parameter and return types.
+346
+347
+         Context-free Type Error Detection. The analyzer checks 𝐶𝐼 using local operation semantics and
+348
+      applicable callee contracts. A successful operation supplies facts to its uses in 𝐶𝐷 ; a conflict enters
+349
+      Phase III. Each supplied fact records its value or location version, condition, type relation, and
+350
+      supporting evidence. In the figure, v: int is supplied at the use of v in h(v, a), allowing the
+351
+      computation of g(c) to be shared across the candidate behaviors of a.
+352
+         Entry-independent computations can contain branches, visible writes, and exceptions. Their
+353
+      conditions, checks, effects, and exceptional successors remain in the assembled relation. A result
+354
+      fact is supplied after its producing operation succeeds, and facts affected by an intervening write
+355
+      are updated at their later uses. Thus, simplification shares inference while retaining the execution
+356
+      behavior that determines each fact’s validity.
+357
+      3.4   Phase II: PSTC Generation
+358
+359      Type Path Extraction. The analyzer explores explicit source paths in 𝐶𝐷 within the configured
+360   bounds. Each template retains guards and operations in execution order, together with applica-
+361   ble facts from Phase I. The Type Paths shown in Figure 2 are these templates. A source path can
+362   support several implicit type behaviors: x + y, for example, can describe integer addition, string
+363   concatenation, or an operation implemented by repository classes. Resolving these alternatives
+364   associates each operand combination with its result and state effects.
+365
+         Type Constraint Resolution. The LLM receives the explicit path, relevant use-site facts, repository
+366
+      type information, and available callee PSTCs. It proposes implicit input/output combinations and
+367
+      corresponding entry and exit assertions. The analyzer assembles them with the ordered checks and
+368
+      effects from both 𝐶𝐼 and 𝐶𝐷 . Source paths determine the locations and ordering of the operations to
+369
+      which each candidate relation applies. Candidate records retain their inference context and source
+370
+      dependencies for subsequent inspection. The resulting cases constitute the function’s PSTC.
+371
+         Inferred relations participate in propagation before conflict validation. At an input state not cov-
+372
+      ered by the available cases, the analyzer requests supplementary analysis or retains an unresolved
+373
+      outcome. An operation or annotation conflict enters Phase III, which expands and re-infers the rel-
+374
+      evant behavior in context. Uncovered inputs and conflicts therefore focus additional construction
+375
+      on the relations needed by current callers.
+376
+377   3.4.1 Call-site Composition and Operation Checks. PSTC generation and application use the same
+378   call-site composition procedure. At each call, the analyzer evaluates the call target and arguments
+379   in source order and checks argument binding. It constructs a substitution 𝜃 from formal parame-
+380   ters, object references, and environment locations to the calling state. Internal symbols and newly
+381   allocated objects are fresh for each instantiation. When two arguments refer to the same actual
+382   object, the corresponding formal references retain that alias.
+383      For a case (𝑝𝑖 , 𝑚𝑖 , 𝑞𝑖 ), applicability is evaluated under
+384
+                                                 Facts(𝐴) ∧ 𝜃(𝑝𝑖 ).                                         (4)
+385
+386   The analyzer then processes 𝜃(𝑚𝑖 ) in event order. A guard refines the current condition. A read
+387   obtains the current version of its location. A write updates that location. An operation requirement
+388   is checked against the state established by the preceding events. The exit assertion projects the
+389   resulting return and shared state; it does not perform the updates a second time.
+390      A definite write to one location representing a single object creates a strong update. For several
+391   possible targets, a weak update retains the possible old and new contents. A previous location
+392
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                                9
+
+
+393   fact survives a call when that location is provably disjoint from the possible write footprint. An
+394   unknown write invalidates precise facts for the affected region. For example, after a.prefix =
+395   b"x" and b.prefix = "y", reading a.prefix yields a string when a is b, but bytes when they
+396   are distinct ordinary objects. The actual alias binding thus determines the state of a subsequent
+397   use.
+398      For a requirement 𝑅 and the current facts 𝐹 , the check examines the success condition 𝐹 ∧ 𝑅 and
+399   the failure condition 𝐹 ∧ ¬𝑅. A supported failure alternative becomes a candidate conflict, associ-
+400   ated with its source location and state dependencies. Indeterminate conditions remain unresolved.
+401   Subsequent events on a normal continuation use the success facts; exceptional continuations carry
+402   the state accumulated up to the failed event. Loop and recursive expansion follows the configured
+403   budgets and records the remaining frontier.
+404      For Figure 1, 𝜃 binds the helper’s message object to the caller’s message and its encoder to
+405   Utf8Encoder. The applicable case writes a bytes value to the body’s new version. The final addition
+406   is checked using that version, producing the bytes/string conflict. The text-encoder case instead
+407   establishes a string version and satisfies the same operation requirement.
+408
+409   3.5   Phase III: Type Conflict Analysis
+410      Callee PSTC Expanding. A candidate conflict links an operation or annotation check to the re-
+411   lations supporting its judgment. Validation begins with those dependencies and reconstructs the
+412   relevant behavior in the current calling context. The expansion unit is a type path: the ordered
+413   source behavior associated with a relation case’s entry and exit assertions. Those assertions guide
+414   selection of the necessary callee paths on the fixed call graph.
+415      The analyzer follows the candidate’s control, value, and alias dependencies to select callee cases.
+416   It connects their type paths to the relevant caller fragments, preserving conditions, operation re-
+417   quirements, writes, and exceptional control flow. The resulting error trace supplies both the source
+418   behavior behind the disputed relation and the call-site-specific symbolic bindings of the calling
+419   context. This error trace corresponds to the figure’s Conflict Trace.
+420
+421      Conflict Path Analysis. The analyzer re-infers behavior over the expanded trace to determine
+422   whether the conflict persists and whether the propagated relation requires revision.
+423      The figure’s Missing Path Contract is a relation supplied by this analysis to supplement or correct
+424   the callee PSTC. Refinement can supplement an entry case, separate alias alternatives, restore
+425   a condition–effect association, or revise an inferred type combination. A correction derived for
+426   a particular calling condition keeps that condition. Revised summaries receive new dependency
+427   versions; results that use an older version are invalidated and the affected caller entries are re-
+428   enqueued. Analysis stops refining a candidate when its disposition is established, no new evidence
+429   is obtained, or the budget is exhausted. Algorithm 1 summarizes this propagation and feedback.
+430
+         Runtime type-error reports. A runtime report requires evidence that the expanded trace reaches
+431
+      an operation with incompatible state and that its target protocol exception escapes the declared
+432
+      entry. For a repository entry, the trace includes the initialization and calls establishing the state; an
+433
+      open-entry report records its symbolic arguments and state assumptions. A handler that consumes
+434
+      the failure produces a handled-failure outcome. A corrected relation that removes the conflict
+435
+      produces a dismissed candidate. Insufficient evidence for either disposition produces an unresolved
+436
+      case. Reports retain the expanded trace, supplementary context, re-inference result, and exception
+437
+      disposition.
+438
+439      Annotation-contract reports. Existing annotations are checked against the requirements and ef-
+440   fects inferred from function behavior. For an input annotation, the analysis examines whether the
+441
+      10                                                                                              Anon.
+
+
+442   Algorithm 1 Propagation with conflict-driven relation refinement
+443
+      Input: Repository 𝑃 , fixed call graph 𝐺 , entries 𝐸 , budgets 𝐵
+444
+      Output: Runtime reports, annotation-contract reports, and unresolved cases
+445
+        1: Initialize summaries and a callee-first worklist 𝑊 from 𝐺, 𝐸
+446
+        2: while 𝑊 ≠ ∅ and analysis budget remains do
+447
+        3:     Remove a function entry (𝑓 , 𝐴) from 𝑊
+448
+        4:     Construct or supplement 𝒮𝑓 using shared facts and type paths
+449
+        5:     Compose relations under 𝐴 and collect operation and annotation conflicts
+450
+        6:     for each candidate conflict 𝑐 do
+451
+        7:          Trace supporting conditions, values, aliases, and callee cases
+452
+        8:          Expand relevant type paths in 𝐺 and re-infer in the calling context
+453
+        9:          if a supporting relation changes then
+454
+       10:              Revise its summary and invalidate dependent results
+455
+       11:              Enqueue affected caller entries in 𝑊
+456
+       12:          end if
+457
+       13:          Classify 𝑐 using its error category and current evidence
+458
+       14:     end for
+459
+       15: end while
+460
+       16: Retain remaining uncovered states and undecided candidates as unresolved
+461
+462
+463
+464   declared inputs are semantically compatible with the inferred requirements. For return and state
+465   declarations, it examines whether the inferred effects are compatible with the declared types. A
+466   conflict enters the same dependency tracing and contextual re-inference process. A confirmed re-
+467   port retains the declaration location, incompatible relation, and supporting behavioral evidence.
+468   Its confirmation concerns the declaration–behavior conflict and does not require a repository call
+469   that raises a runtime exception.
+470
+471
+      3.6   Reuse and Analysis Cost
+472
+473
+      Summary templates reuse extracted relations while freshening their internal symbols at each appli-
+474
+      cation. Reuse of an already instantiated result additionally matches the relevant entry state, aliases,
+475
+      call targets, semantic configuration, assumptions, remaining expansion bounds, and dependency
+476
+      versions. Cache keys include the transitive dependencies of reads, checks, and effects. Instances
+477
+      with unknown read/write footprints are recomputed. A cached failure is reconsidered under the
+478
+      current entry’s reachability and exception context.
+479
+         The computational work comprises shared fact inference, path and type alternative construction,
+480
+      composition, conflict expansion, contextual re-inference, and dependency maintenance. Reuse acts
+481
+      at several of these points: independent facts serve multiple alternatives, event prefixes and callee
+482
+      templates serve multiple cases, and valid instances serve matching calls. Refinement revisits af-
+483
+      fected callers through explicit dependencies. Section 4.3 measures the complete cost and compares
+484
+      these forms of reuse with direct function-body analysis.
+485
+486
+      4 Evaluation
+487   We evaluate three questions: how effectively the analysis detects type errors (RQ1), how its mecha-
+488   nisms affect decisions and cost (RQ2), and what new errors it identifies in independent repositories
+489   (RQ3).
+490
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                            11
+
+
+491   4.1   Experimental Setup
+492
+         Benchmark. The historical benchmark contains xxx public GitHub bug-fix records from xxx
+493
+      Python repositories, collected over xxx. Each record identifies the buggy revision, its repaired revi-
+494
+      sion, the target operation or annotation, and the evidence linking the change to the error. Table 1
+495
+      summarizes the corpus. The detector analyzes each revision separately using that revision’s source
+496
+      and available dependencies. Patch descriptions, cross-revision comparisons, and issue metadata
+497
+      are reserved for assessment. The corpus emphasizes recent public type errors. We assign runtime
+498
+      and annotation-contract labels separately, retaining a link when a record exhibits both categories.
+499
+         A target’s category and entry scope determine its eligibility. Runtime targets satisfy the protocol-
+500
+      failure definition in Section 2; annotation targets concern the semantic compatibility of a dec-
+501
+      laration with behavior. For every tool, results retain the full benchmark denominator and the
+502
+      applicable-subset denominator. Unresolved targets, timeouts, and unsupported cases have sepa-
+503
+      rate counts.
+504
+505
+506      Baselines. We compare Mypy, Pyright [7], Pyrefly [6], Pyinder, MOPSA on its supported subset,
+507   direct LLM detection, and annotation inference followed by a type checker. The checker baselines
+508   represent declared and inferred type checking; Pyinder addresses the same detection task [11];
+509   MOPSA provides a comparison with relational Python analysis [8]. The annotation pipeline uses
+510   xxx followed by xxx and evaluates errors in the original program separately from inconsistencies
+511   introduced by generated annotations. Direct LLM detection uses xxx with the entry and repository
+512   context specified by xxx. Tool versions and configurations are xxx. Mypy uses --check-untyped-
+513   defs for checking unannotated function bodies [9].
+514
+515      Configuration and repeated runs. The analysis uses LLM xxx, decoding configuration xxx, and
+516   prompts xxx. Python and dependency versions are xxx, pyflow revision xxx, and hardware xxx.
+517   Entry selection and dependency models are xxx. The limits for explicit paths, implicit type alterna-
+518   tives, loop/recursive unfolding, conflict refinement, and wall-clock time are xxx. Each experimen-
+519   tal configuration is run three times; reported effectiveness is explicitly the best of three runs. The
+520   selection metric, aggregation unit, and tie-breaking rule are xxx. The aggregation rule for comple-
+521   tion, resolution, and outcome counts across runs is xxx. Cost accounting includes all three runs
+522   and separately identifies the selected run’s cost. These settings apply to the comparisons below.
+523
+524
+525
+         Detection and precision. Paired detection requires a target report in the buggy revision and re-
+526
+      moval of the corresponding conflict in the fixed revision, with both analyses complete and the
+527
+      fixed target semantically resolved. For runtime errors, the buggy outcome must satisfy the entry
+528
+      and exception-escape criteria. For annotation-contract errors, the repaired declaration or behav-
+529
+      ior must resolve the confirmed incompatibility. A fixed target that becomes unreachable requires
+530
+      reachability evidence. Let 𝑁𝑘 be the number of eligible records for category 𝑘 and 𝐷𝑘 its paired de-
+531
+      tections. We report 𝐷𝑘 /𝑁𝑘 together with the full-pool rate. A record in both categories contributes
+532
+      once to each category and once to any unique-record aggregate.
+533
+         Diagnostic precision is the fraction of reviewed reports confirmed as actual errors, including
+534
+      non-target errors. We report it separately for the two categories. Review follows the source, de-
+535
+      clared entry, repair or other behavioral evidence, and exception disposition; the adjudication pro-
+536
+      cedure and reviewer agreement are xxx. Duplicate reports of the same root cause and category
+537
+      are grouped within a revision. Cross-category links are retained rather than counted as duplicate
+538
+      diagnoses.
+539
+      12                                                                                               Anon.
+
+
+540         Table 1. Benchmark composition. Category counts can overlap; unique records are counted once.
+541
+542                           Characteristic                          Count or value
+543
+                              Historical repositories                             xxx
+544
+                              Unique bug-fix records                              xxx
+545
+                              Runtime type-error records                          xxx
+546
+                              Annotation-contract error records                   xxx
+547
+                              Records with both categories                        xxx
+548
+                              Collection interval                                 xxx
+549
+                              Independent discovery repositories                  xxx
+550
+551
+552
+553      Resolution and cost. Completion means the analysis process finishes within its resource limits;
+554   resolution means it establishes a target’s semantic disposition. We report both, together with un-
+555   resolved, timed-out, and unsupported targets. Total cost includes call-graph construction, fact and
+556   relation extraction, composition, LLM requests, trace expansion, re-inference, and caller reanaly-
+557   sis. Measurements include wall-clock time, peak memory, requests, tokens, summary applications,
+558   and expanded source size. Medians and tail latencies are computed over the explicitly identified
+559   completed set; timeouts retain their consumed budget in total-cost accounting.
+560
+561   4.2    RQ1: Detection Effectiveness
+562   Table 2 reports paired detection and diagnostic precision by category. Our approach detects xxx
+563   runtime targets and xxx annotation contract targets, with precision of xxx% and xxx%, respec-
+564   tively. The corresponding full-pool paired rates are xxx% and xxx%. These are the best-of-three
+565   effectiveness results under the selection rule in Section 4.1.
+566      Table 3 places detection beside resolution and cost. Our analysis completes xxx% of revision
+567   analyses and resolves xxx% of eligible targets. The unresolved, timed-out, and unsupported counts
+568   are xxx, xxx, and xxx. The median and 95th-percentile times are xxx and xxx seconds, and peak
+569   memory is xxx. Across three runs, the total number of LLM requests is xxx and token consumption
+570   is xxx.
+571      We associate targets with the information needed to establish the checked state: input/return
+572   dependencies, condition–type relations, and attribute or global updates. These labels can overlap.
+573   For each differing outcome, we trace the operands and effects supporting the judgment. A differ-
+574   ence is attributed to relation preservation when restoring the relation in a matched mechanism
+575   comparison changes the decision. The counts for these three dependence categories are xxx, xxx,
+576   and xxx; their respective paired detections are xxx, xxx, and xxx.
+577
+578   4.3    RQ2: Mechanism Effects and Cost
+579   We compare controlled alternatives under the same entries, available repository facts, operation
+580   semantics, model configuration, and budgets. All variants use the same confirmation rules. Table 4
+581   defines the interventions; Table 5 reports category-specific detections, unresolved targets, and total
+582   time.
+583
+584      State and condition preservation. Independent types, merged paths, and unknown effects iso-
+585   late operand relations, branch correlations, and shared-state updates. Relative to the complete
+586   approach, their differences in paired runtime detection counts are xxx, xxx, and xxx; the corre-
+587   sponding differences in paired annotation-contract detection counts are xxx, xxx, and xxx. They
+588
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                                 13
+
+
+589   Table 2. Best-of-three detection effectiveness. Paired counts and precision (%) are separated by error cate-
+590   gory. MOPSA uses its supported subset of xxx records, covering xxx% of the full pool.
+591
+592                                                       Runtime     Annotation contract
+593                           Method                 Paired Precision Paired    Precision
+594                           Mypy                      xxx         xxx          xxx         xxx
+595                           Pyright                   xxx         xxx          xxx         xxx
+596                           Pyrefly                   xxx         xxx          xxx         xxx
+597                           Pyinder                   xxx         xxx          xxx         xxx
+598                           MOPSA (subset)            xxx         xxx          xxx         xxx
+599                           Direct LLM                xxx         xxx          xxx         xxx
+600                           Inference + checker       xxx         xxx          xxx         xxx
+601
+                              Our approach              xxx         xxx          xxx         xxx
+602
+603
+604   Table 3. Resolution and cost. U, T, and S denote unresolved, timed-out, and unsupported targets. Time is the
+605
+      median per revision in seconds; total cost includes all three runs. Outcome counts follow the aggregation
+      rule in Section 4.1.
+606
+607
+608                        Method                 Resolved (%)      U     T       S Time Total (h)
+609                        Mypy                             xxx xxx xxx xxx            xxx    xxx
+610                        Pyright                          xxx xxx xxx xxx            xxx    xxx
+611                        Pyrefly                          xxx xxx xxx xxx            xxx    xxx
+612                        Pyinder                          xxx xxx xxx xxx            xxx    xxx
+613                        MOPSA (subset)                   xxx xxx xxx xxx            xxx    xxx
+614
+                           Direct LLM                       xxx xxx xxx xxx            xxx    xxx
+                           Inference + checker              xxx xxx xxx xxx            xxx    xxx
+615
+                           Our approach                     xxx xxx xxx xxx            xxx    xxx
+616
+617
+618
+619
+      change xxx, xxx, and xxx unresolved outcomes, respectively. Decision-level inspection links each
+620
+      change to the condition, value version, or object binding that reaches the target operation.
+621
+622      Construction and reuse. Full-body construction retains the same type candidates and source se-
+623   mantics, making the cost comparison sensitive to the reuse of entry-independent facts. Shared
+624   construction produces xxx use-site facts and consumes xxx seconds, compared with xxx seconds
+625   for full-body construction. Disabling implicit alternatives changes the number of represented type
+626   combinations by xxx. The corresponding differences in paired runtime and annotation-contract
+627   detection counts are xxx and xxx. The instance cache serves xxx% of eligible applications. Direct
+628   body analysis is evaluated with and without instance caching; the corresponding total costs are
+629   xxx and xxx hours.
+630
+631      Ordered relations and refinement. The relational-summary comparison preserves intermediate
+632   failures and error locations, so it compares how check dependencies are represented and used. It
+633   produces xxx differing target decisions and xxx differing unresolved outcomes. The selective and
+634   full-callee expansion variants use the same re-inference procedure and contextual information.
+635   They expand xxx and xxx source statements per candidate and consume xxx and xxx seconds
+636   in conflict analysis. Dependency feedback changes xxx candidates from unresolved to decided,
+637
+      14                                                                                                    Anon.
+
+
+638   Table 4. Controlled mechanism comparisons. Each variant changes the named representation or procedure
+639   while retaining the common reporting criteria.
+640
+641   Variant                    Change
+642
+      Independent types          Project each case’s location relations onto independent type sets.
+643   Merged paths               Join branch alternatives, removing condition–effect associations.
+644   Unknown effects            Replace potentially written shared-state contents by unknown values.
+645   Full-body construction     Construct relations from the whole function without separate entry-independent
+646                              fact inference.
+647   No implicit alternatives   Disable additional LLM type-combination proposals while retaining symbolic re-
+648                              quirements and repository facts.
+649   Relational summaries       Export intermediate states, normal/failure relations, and error locations; compose
+650
+                                 by linking intermediate symbols.
+      Direct body analysis       Analyze callee bodies at calls using the same state and operation rules.
+651
+      No instance cache          Recompute instantiated results while retaining reusable summary templates.
+652
+      Full callee expansion      Re-infer complete relevant callee bodies instead of selectively expanded type
+653
+                                 paths.
+654   No dependency feedback     Assess initial candidates without revising summaries and reanalyzing dependent
+655                              callers.
+656
+657
+658   Table 5. Mechanism results. Runtime and contract columns report best-of-three paired detections. Outcome
+659   counts follow the aggregation rule in Section 4.1; total cost includes all three runs.
+660
+661                    Variant                    Runtime     Contract   Unresolved     Total (h)
+662
+                       Complete approach               xxx         xxx           xxx         xxx
+663                    Independent types               xxx         xxx           xxx         xxx
+664                    Merged paths                    xxx         xxx           xxx         xxx
+665                    Unknown effects                 xxx         xxx           xxx         xxx
+666                    Full-body construction          xxx         xxx           xxx         xxx
+667                    No implicit alternatives        xxx         xxx           xxx         xxx
+668                    Relational summaries            xxx         xxx           xxx         xxx
+669                    Direct body analysis            xxx         xxx           xxx         xxx
+670
+                       No instance cache               xxx         xxx           xxx         xxx
+                       Full callee expansion           xxx         xxx           xxx         xxx
+671
+                       No dependency feedback          xxx         xxx           xxx         xxx
+672
+673
+674
+675   dismisses xxx candidates after relation correction, and establishes xxx runtime and xxx annotation-
+676   contract reports. These outcomes are recorded with the responsible summary revision and the
+677   affected caller judgment.
+678
+679   4.4   RQ3: New-Error Discovery
+680   The discovery corpus contains xxx repositories independent of the historical benchmark, at re-
+681   visions xxx. Their selection criteria and analysis entries are xxx. Reports are reviewed using the
+682   same category and evidence rules as the historical study. Across these repositories, the best of
+683   three runs identifies xxx runtime type errors and xxx annotation-contract errors. Their diagnostic
+684   precision is xxx% and xxx%, respectively. The numbers with independent maintainer confirmation
+685   are xxx and xxx; the numbers without that confirmation are xxx and xxx.
+686
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                           15
+
+
+687      For each confirmed error, the evidence record associates the source location with the entry
+688   state, relevant calls, conditional updates, and conflicting requirement or declaration. The discov-
+689   ery results contain xxx errors involving attribute or global updates, xxx involving condition–type
+690   relations, and xxx involving input/return dependencies. Overlapping mechanism labels remain
+691   linked to the same error record. Total analysis time over the three runs is xxx hours, including xxx
+692   hours of construction and xxx hours of conflict analysis and reanalysis.
+693
+694   5 Threats to Validity
+695      Construct validity. Runtime type errors and annotation-contract errors measure different prop-
+696   erties. An open-entry failure can describe an admissible symbolic calling state without establish-
+697   ing a failure reachable from a repository entry. Likewise, an annotation conflict need not cause
+698   a runtime exception in an existing call. Our category-specific metrics, declared entries, and cross-
+699   category links preserve these distinctions. Manual judgments about reachability, intended inter-
+700   faces, duplicate root causes, and exception handling can affect precision. The source and behavioral
+701   evidence retained with each report make these judgments inspectable; the adjudication procedure
+702   is specified in Section 4.1.
+703
+704      Internal validity. LLM-generated relations can omit legal type behaviors or introduce incorrect
+705   ones. Conflict-driven expansion checks disputed relations, but unresolved source semantics and
+706   incomplete context can still prevent a decision. The method does not establish soundness or com-
+707   pleteness for arbitrary Python programs. The fixed pyflow call graph also bounds the callees avail-
+708   able for propagation and expansion; a missing target cannot be recovered by revising a type-state
+709   relation alone. Dynamic attribute behavior, reflection, native extensions, unknown dependency ef-
+710   fects, and bounded loop or recursive exploration can affect coverage. These cases retain unresolved
+711   or unsupported outcomes rather than being treated as confirmed absence of errors.
+712      Ablation differences can arise from semantic coverage or budget consumption as well as the
+713   representation being studied. Matched entries, rules, and confirmation criteria help isolate these
+714   factors. We retain the causes of undecided targets and compare intermediate failures in the rela-
+715   tional and direct-body alternatives. Differences between tools’ dependency models and supported
+716   Python features remain relevant to the whole-tool comparisons.
+717
+         External validity. Public GitHub fixes emphasize errors that developers discovered and chose
+718
+      to repair. Repository selection, issue wording, dependency availability, and the required bug-fix
+719
+      pairing can therefore affect the sampled error distribution. The recent collection interval reduces
+720
+      exposure to older public examples but does not establish that the benchmark is absent from model
+721
+      training data. Model training cutoffs and corpus membership may be unknown. Independent dis-
+722
+      covery repositories test another setting, although their domains and selected entries still bound
+723
+      generalization.
+724
+725      Conclusion validity. The best-of-three protocol reports selected effectiveness rather than ex-
+726   pected performance from a single run. It can favor methods with greater run-to-run variability
+727   and depends on the selection metric and aggregation unit. Consequently, the reported effective-
+728   ness cannot be interpreted as mean reliability. Retaining all run records and accounting for all three
+729   runs’ cost exposes the associated variability and resource expenditure. Model revisions, decoding
+730   settings, and external service latency can also change outcomes and cost.
+731
+732   6 Related Work
+733     Python type checking and type-error detection. Python’s annotation system supplies optional
+734   type declarations, and structural protocols describe behavior shared by different classes [5, 19].
+735
+      16                                                                                                           Anon.
+
+
+736   Checkers combine this interface information with inference and local narrowing [10, 16]. Empir-
+737   ical studies examine how gradual typing affects checker behavior and which types are needed to
+738   describe dynamic objects [17, 20]. Our analysis focuses on the state at an operation after preced-
+739   ing calls have changed shared locations. The relevant relation connects a calling condition to the
+740   particular update that reaches that operation.
+741      Pyinder is a close task-level comparison. It infers types, analyzes functions under parameter-
+742   type contexts, and aggregates and filters member types to identify Python type errors [11]. We
+743   study a representation that keeps entry state, execution conditions, ordered requirements, and
+744   caller-visible updates together. Actual object bindings instantiate this representation at calls, while
+745   conflict dependencies identify the callee type paths used for re-inference. The whole-tool compar-
+746   ison measures detection outcomes; the controlled variants examine the roles of relation preserva-
+747   tion and feedback.
+748
+749      Type inference and generated annotations. Annotation inference reconstructs interface types
+750   from code and repository context. PyTIR models entity dependencies and iteratively updates types
+751   and dependencies with checker feedback [18]. Its evaluation includes annotation accuracy and
+752   diagnostics introduced by generated annotations. Our target is the original program’s operation
+753   behavior and existing annotation contracts. The state analysis uses a fixed pyflow call graph [3]; re-
+754   finement changes type-state relations and their dependent judgments. The inference-plus-checker
+755   baseline evaluates how annotation generation serves this detection task, separating original errors
+756   from generated-interface inconsistencies.
+757
+758
+         Relational and compositional program analysis. Hoare logic connects assertions at program en-
+759
+      try and exit [4]. Compositional symbolic execution reuses procedure behavior at calls [2], while
+760
+      abstract interpretation provides a foundation for reasoning about program states and their rela-
+761
+      tions [1]. MOPSA applies abstract interpretation to Python type analysis, including state relations
+762
+      and control and exception behavior [8].
+763
+         Our model uses these relational and compositional principles for Python type-error detection.
+764
+      Its cases preserve ordered checks and writes along with entry and exit assertions, so intermedi-
+765
+      ate failure dependencies remain available during composition and refinement. The accompanying
+766
+      construction procedure shares entry-independent facts and proposes implicit type alternatives;
+767
+      detection revisits disputed alternatives through selectively expanded type paths. The comparison
+768
+      with failure-preserving relational summaries and direct body analysis evaluates these representa-
+769
+      tion and construction choices under matched rules.
+770
+771
+      7 Conclusion
+772   We present an interprocedural type-state analysis for detecting Python type errors. The model con-
+773   nects function inputs and execution conditions to ordered operation requirements, shared-state
+774   updates, and exits. The analysis constructs and composes these relations, then uses conflicts to
+775   select callee type paths for expansion and contextual re-inference. Dependency-driven revisions
+776   update affected caller judgments. Runtime type errors and annotation-contract errors retain dis-
+777   tinct confirmation criteria and results. The evaluation measures paired detection, diagnostic pre-
+778   cision, unresolved outcomes, and complete analysis cost. The central design connects each error
+779   judgment to the state established by the calls and updates preceding the operation.
+780
+781   References
+782    [1] Patrick Cousot and Radhia Cousot. 1977. Abstract Interpretation: A Unified Lattice Model for Static Analysis of
+783        Programs by Construction or Approximation of Fixpoints. In Proceedings of the 4th ACM SIGACT-SIGPLAN Symposium
+784
+      Detecting Python Type Errors through Interprocedural Type-State Analysis                                           17
+
+
+785        on Principles of Programming Languages (POPL ’77). ACM, New York, NY, USA, 238–252. https://www.di.ens.fr/
+786        ~cousot/COUSOTpapers/POPL77.shtml
+787    [2] Patrice Godefroid. 2007. Compositional Dynamic Test Generation. In Proceedings of the 34th Annual ACM SIGPLAN-
+           SIGACT Symposium on Principles of Programming Languages (POPL ’07). Association for Computing Machinery, New
+788
+           York, NY, USA, 47–54. https://patricegodefroid.github.io/public_psfiles/popl2007.pdf
+789    [3] Zinan Gu, Haoxiang Yan, and Peisen Yao. 2026. PyFlow: An Inter-procedural Static Analysis Framework for Python.
+790        arXiv:2608.07026 doi:10.48550/arXiv.2608.07026
+791    [4] C. A. R. Hoare. 1969. An Axiomatic Basis for Computer Programming. Commun. ACM 12, 10 (1969), 576–580, 583.
+792        doi:10.1145/363235.363259
+       [5] Ivan Levkivskyi, Jukka Lehtosalo, and Łukasz Langa. 2017. PEP 544 – Protocols: Structural Subtyping (Static Duck
+793
+           Typing). Retrieved September 9, 2026 from https://peps.python.org/pep-0544/
+794    [6] Meta Platforms, Inc. n.d.. Pyrefly: A Fast Python Type Checker and Language Server. Retrieved September 22, 2026
+795        from https://pyrefly.org/
+796    [7] Microsoft. n.d.. Pyright: Static Type Checker for Python. Retrieved September 22, 2026 from https://github.com/
+797        microsoft/pyright
+       [8] Raphaël Monat, Abdelraouf Ouadjaout, and Antoine Miné. 2020. Static Type Analysis by Abstract Interpretation of
+798
+           Python Programs. In 34th European Conference on Object-Oriented Programming (Leibniz International Proceedings in
+799        Informatics, Vol. 166). Schloss Dagstuhl – Leibniz-Zentrum für Informatik, Dagstuhl, Germany, 17:1–17:29. doi:10.
+800        4230/LIPIcs.ECOOP.2020.17
+801    [9] Mypy contributors. n.d.. The mypy Command Line. Mypy Documentation. Retrieved September 22, 2026 from
+802        https://mypy.readthedocs.io/en/stable/command_line.html
+      [10] Mypy contributors. n.d.. Type Narrowing. Mypy Documentation. Retrieved September 16, 2026 from https://mypy.
+803
+           readthedocs.io/en/stable/type_narrowing.html
+804   [11] Wonseok Oh and Hakjoo Oh. 2024. Towards Effective Static Type-Error Detection for Python. In Proceedings of the
+805        39th IEEE/ACM International Conference on Automated Software Engineering (ASE ’24). Association for Computing
+806        Machinery, 1808–1820. doi:10.1145/3691620.3695545
+807   [12] Benjamin C. Pierce, Arthur Azevedo de Amorim, Chris Casinghino, Marco Gaboardi, Michael Greenberg, Cătălin
+           Hriţcu, Vilhelm Sjöberg, Andrew Tolmach, and Brent Yorgey. 2026. Hoare Logic, Part I. Software Foundations,
+808
+           Volume 2: Programming Language Foundations. Retrieved September 16, 2026 from https://softwarefoundations.cis.
+809        upenn.edu/plf-current/Hoare.html Version 7.1.
+810   [13] Python Software Foundation. n.d.. Data Model. Python Language Reference. Retrieved September 15, 2026 from
+811        https://docs.python.org/3/reference/datamodel.html
+812   [14] Python Software Foundation. n.d.. Execution Model. Python Language Reference. Retrieved September 16, 2026
+           from https://docs.python.org/3/reference/executionmodel.html
+813
+      [15] Python Software Foundation. n.d.. Glossary: Duck-Typing. Python Documentation. Retrieved September 16, 2026
+814        from https://docs.python.org/3/glossary.html#term-duck-typing
+815   [16] Python typing contributors. n.d.. Type Narrowing. Python Typing Documentation. Retrieved September 16, 2026
+816        from https://typing.python.org/en/latest/guides/type_narrowing.html
+817   [17] Ke Sun, Sheng Chen, Meng Wang, and Dan Hao. 2023. What Types Are Needed for Typing Dynamic Objects? A
+           Python-Based Empirical Study. In Programming Languages and Systems. Springer Nature Singapore, 24–45. doi:10.
+818
+           1007/978-981-99-8311-7_2
+819   [18] Shuo Sun, Shixin Zhang, Jiwei Yan, Jun Yan, and Jian Zhang. 2025. Co-Evolution of Types and Dependencies: Towards
+820        Repository-Level Type Inference for Python Code. arXiv:2512.21591 [cs.SE] doi:10.48550/arXiv.2512.21591
+821   [19] Guido van Rossum, Jukka Lehtosalo, and Łukasz Langa. 2014. PEP 484 – Type Hints. Retrieved September 9, 2026
+822        from https://peps.python.org/pep-0484/
+      [20] Wenjie Xu, Lin Chen, Chenghao Su, Yimeng Guo, Yanhui Li, Yuming Zhou, and Baowen Xu. 2023. How Well Static
+823
+           Type Checkers Work with Gradual Typing? A Case Study on Python. In Proceedings of the 31st IEEE/ACM International
+824        Conference on Program Comprehension (ICPC ’23). IEEE, 242–253. doi:10.1109/ICPC58990.2023.00039
+825
+826
+827
+828
+829
+830
+831
+832
+833
+

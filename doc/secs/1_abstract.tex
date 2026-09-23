@@ -1,0 +1,21 @@
+\begin{abstract}
+Python type errors depend on the state in which an operation executes.
+A function call can change the type of an object attribute or a global
+variable, making a previously valid operation incompatible with the updated
+state. Detecting such errors requires connecting input conditions to the
+state changes established across calls. We present an interprocedural
+type-state analysis for Python type-error detection. Its central model
+relates function entries to ordered operation requirements, state updates,
+and exits, preserving both conditional effects and intermediate failures.
+The analysis constructs these relations by sharing facts independent of
+unknown entry types and using a large language model to propose implicit
+type alternatives. At each call, it instantiates object identities and
+propagates the corresponding state changes. A conflict triggers selective
+expansion of the relevant callee type paths and contextual re-inference;
+revised relations then update dependent callers. The analysis separately
+reports runtime type errors and annotation-contract errors. We evaluate
+paired detection on xxx recent GitHub bug-fix records, diagnostic precision,
+component effects, and total analysis cost. The evaluation reports
+xxx paired runtime detections and xxx paired annotation-contract detections,
+with respective diagnostic precision of xxx\% and xxx\%.
+\end{abstract}

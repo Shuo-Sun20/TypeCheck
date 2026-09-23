@@ -1,0 +1,13 @@
+\section{Conclusion}
+\label{sec:conclusion}
+We present an interprocedural type-state analysis for detecting Python
+type errors. The model connects function inputs and execution conditions
+to ordered operation requirements, shared-state updates, and exits.
+The analysis constructs and composes these relations, then uses conflicts
+to select callee type paths for expansion and contextual re-inference.
+Dependency-driven revisions update affected caller judgments. Runtime
+type errors and annotation-contract errors retain distinct confirmation
+criteria and results. The evaluation measures paired detection, diagnostic
+precision, unresolved outcomes, and complete analysis cost. The central
+design connects each error judgment to the state established by the calls
+and updates preceding the operation.

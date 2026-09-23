@@ -1,0 +1,36 @@
+% Shared packages for the English manuscript.
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+\usepackage{tabularx}
+\usepackage{flafter}
+
+% Shared notation for path type contracts and state assertions.
+\newcommand{\summary}[1]{\mathcal{S}_{#1}}
+\newcommand{\contract}[3]{\left(#1,#2,#3\right)}
+\newcommand{\typeat}[1]{\tau(#1)}
+\newcommand{\ret}{\mathit{ret}}
+\newcommand{\CanAdd}{\operatorname{CanAdd}}
+\newcommand{\AddResult}{\operatorname{AddResult}}
+
+% acmart already loads graphicx, xcolor, booktabs, and hyperref.
+\graphicspath{{doc/photos/}}
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+\lstset{
+  language=Python,
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  numbers=left,
+  numberstyle=\scriptsize,
+  numbersep=6pt,
+  breaklines=true,
+  keepspaces=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  frame=tb,
+  captionpos=b
+}

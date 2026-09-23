@@ -1,0 +1,91 @@
+\section{Background and Motivating Example}
+\label{sec:background}
+
+\subsection{Dynamic Typing and Mutable State in Python}
+Python associates a type with each object, while a name can be rebound to
+objects of different types during execution~\cite{pythonExecutionModel,pythonDataModel}.
+Attribute assignment similarly changes the value stored at an object
+location. When several references designate the same object, an update
+through one reference affects subsequent accesses through the others.
+A call can therefore change the types encountered by its caller through
+both its return value and updates to shared objects or global bindings.
+
+Duck typing determines whether an operation is applicable from the behavior
+supported by its operands~\cite{pythonGlossary}. The runtime objects and
+their classes determine method lookup and operator dispatch. Different classes can
+support the same operation with different result types and state effects.
+For example, two encoder objects can both provide an \texttt{encode}
+method while returning a string and bytes, respectively. Type annotations
+declare interfaces for static checking~\cite{pep484}; an annotation allowing
+both return types or field types still leaves the actual type at a
+particular use dependent on the preceding execution.
+
+We use \emph{type state} for the type information about relevant bindings
+and object locations at a program point, together with the relations needed
+to judge an operation. These relations include branch conditions and object
+identity. A \emph{type-state transition} describes the change caused by a
+statement or call. A function's \emph{type-state relation} connects its
+input state and execution conditions to its return value and caller-visible
+updates. Flow sensitivity tracks changes between program points; path
+sensitivity retains the association between conditions and the states they
+establish. If \texttt{prepare(obj, binary)} writes bytes when \texttt{binary}
+is true and a string otherwise, a later string operation under
+\texttt{not binary} uses the effect associated with that condition.
+
+\subsection{Hoare Triples and State Relations}
+\label{sec:hoare-background}
+Hoare logic expresses a program's behavior using assertions about its
+state~\cite{hoare1969axiomatic,softwareFoundationsHoare}. A triple
+\begin{equation}
+\{P\}\ C\ \{Q\}
+\label{eq:hoare-triple}
+\end{equation}
+contains a precondition $P$, a command $C$, and a postcondition $Q$.
+Under partial correctness, every execution of $C$ that starts in a state
+satisfying $P$ and terminates normally ends in a state satisfying $Q$.
+The judgment does not require termination. Assertions can describe types,
+values, object identities, and relations between locations. For example,
+with $o$ denoting the object referenced by \texttt{msg}, an encoding command
+can relate a string in $\operatorname{Field}(o,\mathtt{body})$ before the
+call to bytes in that same location afterward.
+
+The composition principle connects commands through an intermediate
+assertion: $\{P\}\ C_1\ \{R\}$ and $\{R\}\ C_2\ \{Q\}$ support
+reasoning about $C_1;C_2$ from $P$ to $Q$. At a function call, this requires
+instantiating the callee's assertions with the caller's arguments and object
+identities. The resulting assertion supplies the state in which the next
+operation is checked.
+
+Our representation uses this assertion-based view to connect function
+entries and exits, while retaining the intervening operations as an
+ordered event graph. A case $(p,m,q)$ contains an entry applicability
+assertion $p$, ordered behavior $m$, and a projected normal-exit assertion
+$q$. The behavior records the checks and updates that establish the exit,
+including prefixes ending in an operation failure. This makes intermediate
+states and their supporting operations available to the detection and
+refinement procedures in Section~\ref{sec:method}. Entry applicability
+and internal operation requirements serve distinct roles: the former
+selects a relation case, and the latter is checked against the state at
+its execution point.
+
+\subsection{Type-Error Categories and Analysis Entries}
+An operation requirement follows from the semantics of the executed
+operation, such as compatible operands for addition or a callable receiver
+with valid argument binding. An annotation declares an interface against
+which inferred behavior can be checked. Runtime type errors concern
+operation failures; annotation-contract errors concern semantic
+incompatibility between a declaration and behavior. Each category has its
+own confirmation rule in Section~\ref{sec:conflict-analysis}.
+
+The analysis takes declared entries. An open function entry supplies
+symbolic arguments and relevant object and environment state; its input
+requirements are inferred from function behavior. A repository entry
+includes the initialization and calling sequence establishing that state.
+Reports identify the entry under which a conflict is checked. The targeted
+runtime failures involve incompatible operands, invalid argument binding,
+non-callable objects, missing modeled attributes, and unsupported iteration
+or indexing protocols. Exception propagation is part of the judgment:
+a protocol failure handled within the entry is recorded as a handled
+failure.
+
+\input{doc/secs/3_motivatingExample}

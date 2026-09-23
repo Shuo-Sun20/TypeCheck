@@ -1,0 +1,109 @@
+\section{Introduction}
+\label{sec:introduction}
+Python's dynamic type system offers developers considerable flexibility
+and enables rapid development. However, it also allows type errors to
+remain undetected until runtime. These errors can interrupt program
+execution and cause application failures, compromising software
+reliability. Consequently, substantial research effort has been devoted
+to static type-error detection for Python, with the aim of identifying
+such errors before execution.
+
+Existing approaches have made progress in static type-error detection
+for Python. Type checkers such as Mypy and Pyrefly use type annotations
+to check assignments, function calls, and other operations against declared
+types, and have been adopted in major production codebases and open-source
+projects, including Dropbox, Instagram, PyTorch, and
+JAX~\cite{dropboxMypy,pyreflyAdoption}. Automatic type inference further
+improves detection. For example, Pyinder detected 50\% (34/68) of real-world type
+errors  in its benchmark~\cite{oh2024pyinder}.
+However, these approaches rely on static type models that do not fully
+capture how types vary with execution conditions or change through function
+calls. As a result, they can produce false alarms or miss type errors.
+In Pyinder's evaluation, such limitations accounted for 31\% of the
+confirmed false alarms in its inspected sample~\cite{oh2024pyinder}.
+This gap between static type models and Python's dynamic typing behavior
+limits the effectiveness of existing type-error detection methods.
+
+To address this gap, we aim to improve Python type-error detection by
+tracking type changes across function calls. A function's type requirements
+concern not only its arguments but also the global variables, instance
+attributes, and other values it accesses. We refer to their collective type
+information at a given program point as the \emph{type-state}. Our approach
+captures how a function transforms this state under different execution
+conditions and uses these transformations to check subsequent operations.
+To achieve this goal, we need to address three key challenges.
+
+\paragraph{Challenge 1: Modeling type-state changes across function calls.}
+A function can change the caller's type-state not only through its return
+value but also by updating global variables or attributes of mutable
+objects. These updates depend on the function's execution path, so calls
+to the same function can establish different type-states. Conventional
+type annotations describe parameter, return, and attribute types, but do
+not specify how a call transforms the incoming type-state under different
+execution conditions. We therefore need a new model to express these
+conditional type-state changes and their effects on subsequent operations.
+
+\paragraph{Challenge 2: Extracting conditional type-state changes from code.}
+Program execution involves both explicit and implicit paths. Explicit
+paths arise from branch statements, while implicit paths arise from Python
+operations whose behavior depends on the types involved. For example,
+addition can perform arithmetic, concatenate strings, or invoke a
+user-defined method, with different type requirements and effects in each
+case. Analyzing these paths across function calls further requires
+considering combinations of caller and callee paths, leading to path
+explosion. Accounting for implicit paths and managing path explosion
+therefore make it challenging to extract conditional type-state changes
+from code.
+
+\paragraph{Challenge 3: Detecting type errors using conditional type-state changes.}
+Due to limitations in analysis precision, the extracted type-state
+transition relations may contain inaccuracies, which can cause valid
+operations to be flagged as type errors. A detected type conflict therefore
+does not necessarily indicate
+an error in the program. Distinguishing a real error from an analysis
+inaccuracy requires examining how the conflicting state arises under the
+relevant calling conditions. Moreover, an inaccurate type-state change
+can propagate through multiple calls, affecting error detection in other
+functions. The challenge is therefore to distinguish type errors
+from false alarms and correct analysis inaccuracies.
+
+To address these challenges, we propose PyTT(Python Type Tracker), a Python type-error detector
+that models and tracks conditional type-state transitions across function
+calls. To address \textbf{Challenge 1}, we introduce a
+\emph{path-sensitive type contract} (PSTC) to represent these transitions,
+capturing a function's type requirements and updates along different
+execution paths. To address \textbf{Challenge 2}, PyTT uses static analysis
+to identify explicit paths and a large language model (LLM) to infer
+implicit paths. It further uses static analysis to
+simplify code whose type behavior is independent of the calling context,
+reducing repeated analysis across paths to mitigate path explosion.
+To address \textbf{Challenge 3}, PyTT uses PSTCs to trace detected conflicts
+across function boundaries. It analyzes the resulting traces to distinguish
+type errors from false alarms. For false alarms, PyTT corrects the
+inaccuracies in the corresponding contracts and updates the affected
+analysis results.
+
+We evaluate PyTT on xxx real-world type-error fixes from xxx Python
+repositories, measuring detection effectiveness, diagnostic precision,
+and analysis cost. PyTT detects xxx runtime type errors and xxx
+annotation-contract errors, with precision of xxx\% and xxx\%, respectively.
+Each detection is checked against both the buggy and fixed revisions.
+Ablation experiments examine the contributions of conditional type-state
+modeling, explicit and implicit path analysis, and conflict analysis and
+correction. We further evaluate PyTT on xxx independent repositories,
+where it identifies xxx previously unknown type errors.
+
+The contributions are as follows:
+\begin{itemize}
+  \item We introduce the path-sensitive type contract (PSTC), a model
+  that captures conditional type-state transitions across function calls
+  for Python type-error detection.
+  \item We propose PyTT, a type-error detection method that combines
+  static analysis and LLM-based analysis to extract these transitions.
+  PyTT analyzes conflict traces across functions to distinguish type
+  errors from false alarms and correct analysis inaccuracies.
+  \item We evaluate PyTT on real-world type-error fixes and independent
+  Python repositories, assessing detection effectiveness, diagnostic
+  precision, and analysis cost, and examining the contributions of its
+  key components through ablation experiments.
+\end{itemize}
