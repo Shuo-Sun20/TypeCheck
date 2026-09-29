@@ -1,170 +1,161 @@
 \section{Approach}
 \label{sec:method}
+PyTT detects Python type errors by tracking how function calls change the
+type-state used by subsequent operations. We first outline its workflow,
+then define the path-sensitive type contract (PSTC) that represents
+conditional type-state transitions. We explain how PyTT extracts these
+contracts and uses them to investigate conflicts across function calls.
 
 \subsection{Overview}
-Figure~\ref{fig:method-overview} presents the workflow of PyTT, our
-implementation of interprocedural type-state analysis. Its inputs are a
-Python repository, declared entries, dependency contracts, a Python
-semantic configuration, and exploration budgets. The top row constructs
-a call graph using pyflow~\cite{pyflow2026}, then analyzes functions in
-callee-first order. Recursive functions are grouped into strongly
-connected components; the topological order applies to the resulting
-component graph. This call graph remains fixed throughout the analysis.
-
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{methodOverview.pdf}
-\caption{Overview of PyTT. A fixed call graph orders function analysis.
-For each function, Context-free Code Simplification supplies shared facts
-to PSTC Generation. A PSTC contains entry assertions ($P$), ordered path
-behavior, and exit assertions ($Q$). Type conflicts enter Type Conflict
-Analysis, which expands relevant callee paths and re-infers the resulting
-trace. Revised path contracts update callee PSTCs and dependent callers.}
-\Description{The top row connects a repository to call graph generation,
-a call graph, ordered function analysis, and bug reports. The bottom panel
-shows function code and callee PSTCs entering three phases. The first
-extracts and checks entry-independent code to supply type facts. The second
-extracts type paths and resolves their type constraints to form a PSTC.
-The third expands callee PSTCs and analyzes a conflict trace. Its outputs
-are bug reports or a missing path contract that feeds back to update the
-callee PSTC. A PSTC inset shows two entry, path, and exit cases, including
-an attribute changing from type B to C.}
+\caption{Overview of PyTT's workflow}
 \label{fig:method-overview}
 \end{figure}
 
-The lower panel expands the analysis of one function into three phases.
-Function code and available \emph{callee PSTCs} supply the local and
-interprocedural information used in these phases. A \emph{path-sensitive
-type contract} (PSTC) is our representation of a function's type-state
-relations: each path contract connects entry assertions, ordered path
-behavior, and exit assertions. We define it in Section~\ref{sec:state-model}.
+Figure~\ref{fig:method-overview} illustrates the workflow of PyTT for
+interprocedural Python type-error detection. Given a Python repository,
+PyTT constructs a call graph and analyzes functions in callee-first order.
+For each function, PyTT checks operations and constructs a
+\textbf{path-sensitive type contract (PSTC)} to represent the type-state
+transitions within the function, based on its source code and the PSTCs of
+its callees. The constructed PSTC is subsequently used to analyze callers
+and refined as detected conflicts are investigated.
+This per-function procedure consists of three major phases.
+PyTT first separates and analyzes computations independent of the function's entry type-state,
+then summarizes the remaining context-sensitive behavior as a PSTC, and finally investigates
+the resulting type conflicts to either confirm type errors or refine
+inaccurate PSTCs. The contract model addresses Challenge~1 in the
+introduction. The first two phases address Challenge~2 by reducing repeated
+analysis and extracting explicit and implicit paths. The third phase
+addresses Challenge~3 by distinguishing type errors from false alarms
+and correcting the contracts responsible for them.
 
-\paragraph{Phase I: Context-free Code Simplification.}
-The analyzer separates computations whose type behavior can be determined
-without the unknown entry types and state from the remaining computations.
-It checks the extracted part and supplies type facts at their uses in the
-remaining code. In the figure, the available contract of \texttt{g} allows
-\texttt{v = g(c)} with \texttt{c = 1} to supply the fact \texttt{v: int}
-to the subsequent call \texttt{h(v, a)}. The extracted checks and effects
-remain part of the function's behavior.
+\textbf{(1) Context-free Code Simplification}. This phase is designed to avoid repeatedly
+analyzing computations whose type behavior can be determined independently
+of the function's entry type-state.
+PyTT separates these computations from the context-sensitive remainder, checks them once, and
+propagates the resulting type facts to their dependent operations.
+In Figure~\ref{fig:method-overview}, the previously constructed PSTC for
+\texttt{g} allows PyTT to infer \texttt{v: int} from \texttt{c = 1} and
+\texttt{v = g(c)}. The remaining call \texttt{h(v, a)} can therefore be
+analyzed with the known type of \texttt{v}, while leaving the entry-dependent
+type of \texttt{a} to the next phase. The original checks and effects of the
+separated computations remain part of the function's summarized behavior.
 
-\paragraph{Phase II: PSTC Generation.}
-\emph{Type Path Extraction} obtains explicit paths through the dependent
-code. \emph{Type Constraint Resolution} combines their operations with
-shared type facts and callee PSTCs, using the LLM to propose implicit type
-alternatives and corresponding assertions. The analyzer assembles these
-relations with the ordered checks and effects. Inferred relations are used
-for propagation, and conflicts encountered during construction or
-composition are passed to the third phase.
+\textbf{(2) PSTC Generation}. This phase summarizes how the
+context-sensitive part of the function behaves under different entry
+type-states. PyTT extracts explicit execution paths and resolves their type
+constraints using the type facts produced in the first phase and the
+available PSTCs of callees. For behavior not fully exposed by the extracted
+paths, an LLM infers implicit paths and their
+corresponding entry and exit assertions. PyTT combines these assertions with
+the ordered checks and effects of each path to construct the function's
+PSTC. In the workflow figure, this phase analyzes \texttt{h(v, a)} using
+\texttt{v: int} together with the possible entry types of \texttt{a}.
+The resulting path contracts are propagated to callers, whereas conflicts
+encountered during their construction or composition are passed to the
+third phase.
 
-\paragraph{Phase III: Type Conflict Analysis.}
-\emph{Callee PSTC Expanding} selects the callee type paths relevant to a
-conflict and connects them to the caller's relevant behavior.
-\emph{Conflict Path Analysis} re-infers this expanded trace in its calling
-context. A confirmed incompatible behavior produces the corresponding
-error report. A missing or inaccurate relation instead yields a new or
-revised path contract, shown as \emph{Missing Path Contract} in the figure.
-The \emph{Update Callee PSTC} feedback revises the summary and re-enqueues
-affected callers. This feedback updates type-state relations and their
-dependent results on the fixed call graph.
+\textbf{(3) Type Conflict Analysis}. A detected conflict may indicate either
+an incompatible program behavior or an inaccurate PSTC. To distinguish
+between the two, PyTT expands the relevant paths from the callee PSTCs,
+connects them to the caller path leading to the conflicting call site, and
+re-analyzes the resulting conflict trace under the calling context. PyTT
+reports an error when the trace provides evidence of a runtime type failure
+or an annotation--behavior incompatibility. If the conflict instead arises
+from an inaccurate contract, PyTT derives a missing or revised path contract
+and corrects the corresponding PSTC. Cases with insufficient evidence
+remain unresolved. For example, a conflict at \texttt{h(v, a)} is analyzed together
+with the relevant behavior of \texttt{h} and the calling facts established
+for \texttt{v} and \texttt{a}, rather than being reported directly.
+
+The three phases form an iterative interprocedural analysis. Whenever Type
+Conflict Analysis refines a callee PSTC, PyTT invalidates the dependent
+results and re-enqueues the affected callers. This process continues until
+the relevant PSTCs stabilize or the configured exploration budget is
+reached. PyTT then reports the confirmed type errors and records any
+remaining undecided cases as unresolved.
 
 
-
-\subsection{Modeling Type-State Relations}
+\subsection{Design of Path-Sensitive Type Contracts}
 \label{sec:state-model}
-\paragraph{Versioned state.}
-An analysis state is $A=(\Gamma,H,\phi)$. The environment $\Gamma$ maps
-scoped variable bindings to versioned value symbols. The heap $H$ records
-the presence, value, type, and reference information of object locations.
-The formula $\phi$ retains conditions and relations among symbols.
-An instance attribute is identified by $\operatorname{Field}(o,a)$, where
-$o$ is the object identity and $a$ the attribute name. Class attributes
-have locations associated with their class objects, separate from instance
-locations. Global bindings are qualified by their defining module.
+As illustrated in Section~\ref{sec:motivating-example}, a function's return
+type alone does not describe how its execution affects later operations.
+A call may also update global variables or attributes of shared objects,
+and the resulting types depend on the calling conditions and execution
+path. A PSTC records these conditions together with the corresponding
+type requirements and updates.
 
-Assignment creates a fresh value version at the updated binding or
-location. A fact about the previous version remains a fact about that
-value, while subsequent reads use the new version. Reference information
-connects aliases to the same object identity. Presence distinguishes an
-absent attribute, a present attribute whose value is \texttt{None}, and
-unknown presence. Type terms include classes, subclass alternatives,
-container types, literal types, symbolic types, unions, and an unknown
-type. Semantic predicates describe relationships such as operand
-compatibility and the type of an operation's result.
+\paragraph{Type-state and assertions.}
+Following the introduction, a \emph{type-state} collects the type
+information for values relevant at a program point. We write
+$S:L\rightarrow\mathcal{T}$, where $L$ contains the tracked variables and
+attribute locations, and $\mathcal{T}$ contains the types or sets of possible
+types assigned to their contents. These locations include parameters,
+local and global variables, and class and instance attributes. A
+distinguished result location records the return value on normal exit.
+Updating an attribute changes the type information for its contents; it
+does not change the class of the containing object. References to the same
+object share its attribute locations.
 
-Alternative states retain complete relations. If an encoder choice is
-associated with a particular field update, each alternative keeps that
-association. This representation directly supports the distinction between
-the illustrated call and its text-encoder alternative in
-Section~\ref{sec:motivating-example}: the same field
-location receives different value versions under different encoder cases.
+The analysis uses assertions to describe sets of possible states. Besides
+type facts, an assertion can retain branch conditions and object-identity
+constraints needed to relate a calling condition to an update. This
+distinction matters because entry types alone need not determine which
+path a function executes.
 
-\paragraph{Entries, events, and exits.}
-A PSTC represents function $f$ by a set of relation cases, called path
-contracts in Figure~\ref{fig:method-overview}:
-\begin{equation}
-\summary{f}=\{(p_i,m_i,q_i)\mid i\in I_f\}.
-\label{eq:summary}
-\end{equation}
-Here $p_i$ describes the incoming state and the case's applicability
-conditions. The ordered event graph $m_i$ retains guards, reads, writes,
-operation requirements, calls, and exceptional behavior. The assertion
-$q_i$ projects the normal exit onto the return value and caller-visible
-state. Cases also carry source locations, read/write footprints,
-dependency versions, coverage information, and evidence. A case ending
-in failure or at an exploration boundary retains its event prefix and a
-marker for the absence of a normal exit.
+\paragraph{Contract cases.}
+Let $\mathcal{A}$ be the set of state assertions and $\mathcal{M}_f$ the
+set of path descriptions for a function $f$. We represent its PSTC as
+\[
+    \mathit{PSTC}(f) \subseteq
+    \mathcal{A}\times\mathcal{M}_f\times\mathcal{A}.
+\]
+Each case $(p,m,q)$ associates an entry assertion $p$, a path description
+$m$, and an exit assertion $q$. The path description retains the ordered
+guards, operation requirements, calls, and updates that connect the two
+assertions. It includes both explicit branch choices and implicit choices
+of type-dependent operation behavior.
 
-The figure's $P$, Path, and $Q$ fields correspond to $p_i$, $m_i$, and
-$q_i$. In its first case, the incoming object \texttt{a} has type $A$ and
-its attribute has type $B$; the exit relates the same object to an attribute
-of type $C$ and a return value of type $T$. The Path field records the
-conditions and operations establishing that change. As in the Hoare
-triple introduced in Section~\ref{sec:hoare-background}, assertions connect
-states across execution. Here the retained event graph also exposes the
-checks and intermediate updates used for detection and refinement.
+Consistent with the Hoare-triple interpretation in the background, a
+correct case states that an execution starting in a state satisfying $p$
+and following $m$ establishes $q$ if it returns normally. It does not
+assert that $p$ uniquely selects $m$, that execution terminates, or that
+no type error occurs along the path. PyTT checks the requirements of
+individual operations and retains exceptional continuations separately.
+Moreover, extracted cases are analysis results that may be incomplete or
+inaccurate; Phase~III investigates and corrects them when conflicts arise.
 
-The distinction between applicability and operation safety is essential
-for using the model. Entry matching selects a case applicable to the
-incoming state. A later event $\operatorname{check}(R)$ tests an operation
-requirement against the state immediately before that event and retains
-both its successful and failing successors. Result facts become available
-on the successful successor. Internal safety requirements therefore stay
-at their execution positions rather than becoming assumptions used to
-exclude an incoming call.
+\paragraph{Conditional updates in the motivating example.}
+For \texttt{encode\_message}, one case associates an incoming string body
+and a \texttt{TextEncoder} argument with a string body on normal return.
+Another associates the same incoming body type and a \texttt{Utf8Encoder}
+argument with a bytes body. Both cases return \texttt{None}, but they
+establish different types for the shared field. The non-string path
+records that the body is left unchanged.
 
-For example, in \texttt{y = 1 + "x"; if flag: ...}, addition fails before
-the conditional is evaluated. Its failure prefix applies to both values
-of \texttt{flag}. Preserving that prefix makes the failure available to
-callers even though the function has no normal exit along this execution.
-Similarly, an exceptional exit carries writes performed before the failed
-operation.
-
-For the encoder example, let $\ell=\operatorname{Field}(o,\mathtt{body})$
-and let $e$ denote an exact instance of one of the shown encoder classes.
-For an incoming string, the normal effects include
-\begin{equation}
-\begin{aligned}
-\typeat{\ell_{\mathrm{in}}}&=\mathtt{str},\\
-\typeat{e}=\mathtt{TextEncoder}&\Rightarrow
-  \typeat{\ell_{\mathrm{out}}}=\mathtt{str},\\
-\typeat{e}=\mathtt{Utf8Encoder}&\Rightarrow
-  \typeat{\ell_{\mathrm{out}}}=\mathtt{bytes}.
-\end{aligned}
-\label{eq:encoder-effects}
-\end{equation}
-Both cases return \texttt{None}. Their event graphs retain the body guard,
-method call, and write establishing the effect. A further case of \texttt{encode\_message} preserves a bytes body
-when the helper's \texttt{isinstance(msg.body, str)} guard is false. The entry and exit assertions are
-thus endpoints of an ordered behavior relation.
+At a call site, PyTT instantiates each relevant case for the actual
+arguments and shared locations. It retains the association between the
+calling conditions and the resulting state instead of assigning every
+possible result type to every call. The pair $(p,q)$ describes the
+conditional transition, while $m$ provides the operation order and source
+evidence needed to check that transition and investigate a conflict.
 
 \subsection{Phase I: Context-free Code Simplification}
 \label{sec:extraction}
+Combining caller and callee paths can cause the same computations to be
+analyzed repeatedly. Before extracting conditional transitions, PyTT uses
+static analysis to identify computations whose type behavior is independent
+of the unknown entry type-state. It analyzes these computations once and
+reuses their results across the paths considered in Phase~II.
+
 \paragraph{Context-free Code Extraction.}
-The figure's term \emph{context-free} means independent of the unknown
-entry types and state. A computation belongs to this part, $C_I$, when
+Here, \emph{context-free} refers to this independence from the calling
+context. A computation belongs to this part, $C_I$, when
 local semantics and available callee PSTCs determine its type behavior
-without instantiating that unknown information. The remaining computations
+without resolving the unknown entry type-state. The remaining computations
 form the context-dependent part $C_D$, labeled \emph{Context-sensitive Code
 Snippet} in the figure. Dependence follows values, object state, guards,
 and callee effects. Both parts retain source positions and control
@@ -198,25 +189,41 @@ while retaining the execution behavior that determines each fact's validity.
 
 \subsection{Phase II: PSTC Generation}
 \label{sec:pstc-generation}
+PyTT combines static analysis of explicit paths with LLM-based inference
+of implicit paths to extract conditional type-state transitions. It uses
+the facts from Phase~I and callee PSTCs to connect each path's entry
+requirements to its return value and shared-state updates.
+
 \paragraph{Type Path Extraction.}
-The analyzer explores explicit source paths in $C_D$ within the configured
+Static analysis explores explicit source paths in $C_D$ within the configured
 bounds. Each template retains guards and operations in execution order,
 together with applicable facts from Phase~I. The \emph{Type Paths} shown
-in Figure~\ref{fig:method-overview} are these templates. A source path can
-support several implicit type behaviors: \texttt{x + y}, for example,
-can describe integer addition, string concatenation, or an operation
-implemented by repository classes. Resolving these alternatives associates
-each operand combination with its result and state effects.
+in Figure~\ref{fig:method-overview} are these templates. A single explicit
+path can contain several implicit paths because Python operations select
+different behavior for different operand types. For example,
+\texttt{x + y} can perform arithmetic, concatenate strings, or invoke a
+user-defined method. Each implicit path has its own type requirements,
+result, and possible state updates.
 
 \paragraph{Type Constraint Resolution.}
 The LLM receives the explicit path, relevant use-site facts, repository
-type information, and available callee PSTCs. It proposes implicit
-input/output combinations and corresponding entry and exit assertions.
+type information, and available callee PSTCs. It infers implicit paths,
+including the type conditions for the selected operations and their
+effects, and proposes the corresponding entry and exit assertions.
 The analyzer assembles them with the ordered checks and effects from both
 $C_I$ and $C_D$. Source paths determine the locations and ordering of the
 operations to which each candidate relation applies. Candidate records
 retain their inference context and source dependencies for subsequent
 inspection. The resulting cases constitute the function's PSTC.
+
+In \texttt{encode\_message}, the test on the message body gives explicit
+string and non-string paths. On the string path, the encoder call has
+different behavior for \texttt{TextEncoder} and \texttt{Utf8Encoder}.
+Combining each encoder's return type with the assignment to the body
+produces the two conditional field-update cases described above. The
+non-string path preserves the incoming body type. This construction keeps
+the encoder condition attached to the field update when the helper's
+contract is later applied to a caller.
 
 Inferred relations participate in propagation before conflict validation.
 At an input state not covered by the available cases, the analyzer requests
@@ -240,12 +247,23 @@ For a case $(p_i,m_i,q_i)$, applicability is evaluated under
 \operatorname{Facts}(A)\land\theta(p_i).
 \label{eq:applicability}
 \end{equation}
-The analyzer then processes $\theta(m_i)$ in event order. A guard refines
+Here, $A$ is the caller's abstract state and $\operatorname{Facts}(A)$
+contains its current type and path conditions. A case is excluded when
+this conjunction is inconsistent. Otherwise, it is considered under the
+combined condition; consistency alone does not establish that the case
+covers every execution represented by $A$. PyTT retains the conditions of
+each case when multiple cases apply. Calling states not covered by any
+case require supplementary analysis or remain unresolved, rather than
+being classified as type errors solely because no precondition matches.
+
+For each retained case, the analyzer processes $\theta(m_i)$ in event
+order. A guard refines
 the current condition. A read obtains the current version of its location.
 A write updates that location. An operation requirement is checked against
-the state established by the preceding events. The exit assertion projects
-the resulting return and shared state; it does not perform the updates a
-second time.
+the state established by the preceding events. On normal return, the exit
+assertion describes the resulting return value and shared state; it does
+not perform the updates a second time. Its facts apply only under the
+conditions of that normal continuation.
 
 A definite write to one location representing a single object creates a strong update.
 For several possible targets, a weak update retains the possible old and
@@ -274,7 +292,14 @@ satisfies the same operation requirement.
 
 \subsection{Phase III: Type Conflict Analysis}
 \label{sec:conflict-analysis}
-\paragraph{Callee PSTC Expanding.}
+The extracted transitions may contain inaccuracies that produce false
+alarms and propagate to other functions. PyTT therefore treats an
+operation or annotation conflict as a candidate for investigation. This
+phase traces how the conflicting state arises, distinguishes program
+errors from contract inaccuracies, and updates the affected analysis
+results after a correction.
+
+\paragraph{Callee PSTC Expansion.}
 A candidate conflict links an operation or annotation check to the relations
 supporting its judgment. Validation begins with those dependencies and
 reconstructs the relevant behavior in the current calling context.
@@ -286,15 +311,27 @@ call graph.
 The analyzer follows the candidate's control, value, and alias dependencies
 to select callee cases. It connects their type paths to the relevant caller
 fragments, preserving conditions, operation requirements, writes, and
-exceptional control flow. The resulting \emph{error trace} supplies both
+exceptional control flow. The resulting \emph{conflict trace} supplies both
 the source behavior behind the disputed relation and the call-site-specific symbolic
-bindings of the calling context. This error trace corresponds to the
-figure's \emph{Conflict Trace}.
+bindings of the calling context. It records a candidate conflict and the
+behavior needed to assess it, without presupposing that the program is
+erroneous.
 
 \paragraph{Conflict Path Analysis.}
 The analyzer re-infers behavior over the expanded trace to determine
 whether the conflict persists and whether the propagated relation
 requires revision.
+
+In the motivating example, the trace starts from the caller's string
+guard and follows the helper call. It connects the encoder's return value
+to the field update and then to the concatenation in the caller.
+For a \texttt{Utf8Encoder} argument, the write establishes a
+bytes body and the concatenation with a string raises \texttt{TypeError},
+which escapes the caller. This trace supports a runtime type-error report.
+If an inaccurate summary instead propagated a bytes body for a
+\texttt{TextEncoder} call, examining that encoder's behavior would reveal
+that it returns the string unchanged. PyTT would correct the condition
+associated with the field update and dismiss the resulting false alarm.
 
 The figure's \emph{Missing Path Contract} is a relation supplied by this
 analysis to supplement or correct the callee PSTC. Refinement can
@@ -316,7 +353,8 @@ Algorithm~\ref{alg:analysis} summarizes this propagation and feedback.
 \State Initialize summaries and a callee-first worklist $W$ from $G,E$
 \While{$W\neq\emptyset$ and analysis budget remains}
   \State Remove a function entry $(f,A)$ from $W$
-  \State Construct or supplement $\summary{f}$ using shared facts and type paths
+  \State Infer entry-independent facts and extract explicit and implicit paths
+  \State Construct or supplement $\mathit{PSTC}(f)$ from these facts and paths
   \State Compose relations under $A$ and collect operation and annotation conflicts
   \For{each candidate conflict $c$}
     \State Trace supporting conditions, values, aliases, and callee cases
@@ -334,8 +372,9 @@ Algorithm~\ref{alg:analysis} summarizes this propagation and feedback.
 
 \paragraph{Runtime type-error reports.}
 A runtime report requires evidence that the expanded trace reaches an
-operation with incompatible state and that its target protocol exception
-escapes the declared entry. For a repository entry, the trace includes
+operation with incompatible operand types or unmet protocol requirements
+and that the resulting type-related exception escapes the declared entry.
+For a repository entry, the trace includes
 the initialization and calls establishing the state; an open-entry report
 records its symbolic arguments and state assumptions. A handler that
 consumes the failure produces a handled-failure outcome. A corrected
@@ -358,6 +397,12 @@ that raises a runtime exception.
 
 \subsection{Reuse and Analysis Cost}
 \label{sec:reuse}
+Reuse reduces the repeated analysis described in Challenge~2.
+Phase~I shares inferred facts across paths, and callee PSTCs
+allow callers to reuse conditional transitions without repeating the full
+analysis of each function body. These mechanisms reduce repeated work;
+they do not eliminate the combinations of explicit and implicit paths.
+
 Summary templates reuse extracted relations while freshening their internal
 symbols at each application. Reuse of an already instantiated result
 additionally matches the relevant entry state, aliases, call targets,

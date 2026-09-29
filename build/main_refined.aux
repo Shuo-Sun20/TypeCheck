@@ -1,0 +1,147 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{dropboxMypy,pyreflyAdoption}
+\citation{oh2024pyinder}
+\citation{oh2024pyinder}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:introduction}{{1}{1}{Introduction}{section.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Challenge 1: Modeling type-state changes across function calls.}{1}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Challenge 2: Extracting conditional type-state changes from code.}{2}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Challenge 3: Detecting type errors using conditional type-state changes.}{2}{section*.4}\protected@file@percent }
+\citation{oh2024pyinder}
+\citation{pythonExecutionModel,pythonDataModel}
+\citation{pythonGlossary}
+\citation{hoare1969axiomatic,softwareFoundationsHoare}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background and Motivating Example}{3}{section.2}\protected@file@percent }
+\newlabel{sec:background}{{2}{3}{Background and Motivating Example}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dynamic Typing and Duck Typing in Python}{3}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Hoare Triples as Function Summaries}{3}{subsection.2.2}\protected@file@percent }
+\newlabel{sec:hoare-background}{{2.2}{3}{Hoare Triples as Function Summaries}{subsection.2.2}{}}
+\newlabel{eq:hoare-triple}{{1}{4}{Hoare Triples as Function Summaries}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Motivating Example}{4}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:motivating-example}{{2.3}{4}{Motivating Example}{subsection.2.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Motivating example of interprocedural type-state changes and type-error detection results.}}{5}{figure.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:motivating-example}{{1}{5}{Motivating example of interprocedural type-state changes and type-error detection results}{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Approach}{6}{section.3}\protected@file@percent }
+\newlabel{sec:method}{{3}{6}{Approach}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Overview}{6}{subsection.3.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Overview of PyTT's workflow}}{6}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:method-overview}{{2}{6}{Overview of PyTT's workflow}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Design of Path-Sensitive Type Contracts}{7}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:state-model}{{3.2}{7}{Design of Path-Sensitive Type Contracts}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}Representing Calling Conditions and Updates}{7}{subsubsection.3.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}Connecting Assertions through Execution Paths}{7}{subsubsection.3.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Phase I: Context-free Code Simplification}{8}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:extraction}{{3.3}{8}{Phase I: Context-free Code Simplification}{subsection.3.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}Identifying Computations for Shared Analysis}{8}{subsubsection.3.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}Supplying Type Facts to the Remaining Code}{8}{subsubsection.3.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Phase II: PSTC Generation}{9}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:pstc-generation}{{3.4}{9}{Phase II: PSTC Generation}{subsection.3.4}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}Separating Explicit Execution Paths}{9}{subsubsection.3.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}Resolving Implicit Paths}{9}{subsubsection.3.4.2}\protected@file@percent }
+\newlabel{sec:composition}{{3.4.3}{10}{Applying Contracts to Check Caller Operations}{subsubsection.3.4.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.3}Applying Contracts to Check Caller Operations}{10}{subsubsection.3.4.3}\protected@file@percent }
+\newlabel{eq:applicability}{{2}{10}{Applying Contracts to Check Caller Operations}{equation.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Phase III: Type Conflict Analysis}{11}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:conflict-analysis}{{3.5}{11}{Phase III: Type Conflict Analysis}{subsection.3.5}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.5.1}Constructing a Conflict Trace}{11}{subsubsection.3.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.5.2}Distinguishing Errors from Contract Inaccuracies}{11}{subsubsection.3.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.5.3}Determining What to Report}{12}{subsubsection.3.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Interprocedural Refinement and Reuse}{12}{subsection.3.6}\protected@file@percent }
+\newlabel{sec:reuse}{{3.6}{12}{Interprocedural Refinement and Reuse}{subsection.3.6}{}}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces PSTC propagation and conflict-driven refinement}}{13}{algorithm.1}\protected@file@percent }
+\newlabel{alg:analysis}{{1}{13}{PSTC propagation and conflict-driven refinement}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Evaluation}{13}{section.4}\protected@file@percent }
+\newlabel{sec:evaluation}{{4}{13}{Evaluation}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental Setup}{13}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:setup}{{4.1}{13}{Experimental Setup}{subsection.4.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Benchmark.}{13}{section*.7}\protected@file@percent }
+\citation{pyright}
+\citation{pyrefly}
+\citation{oh2024pyinder}
+\citation{monat2020python}
+\citation{mypyCommandLine}
+\@writefile{toc}{\contentsline {paragraph}{Baselines.}{14}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Configuration.}{14}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Detection and precision.}{14}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Resolution and cost.}{14}{section*.12}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Benchmark composition. Category counts can overlap; unique records are counted once.}}{15}{table.caption.8}\protected@file@percent }
+\newlabel{tab:dataset}{{1}{15}{Benchmark composition. Category counts can overlap; unique records are counted once}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}RQ1: Detection Effectiveness}{15}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:rq1}{{4.2}{15}{RQ1: Detection Effectiveness}{subsection.4.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}RQ2: Mechanism Effects and Cost}{15}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:rq2}{{4.3}{15}{RQ2: Mechanism Effects and Cost}{subsection.4.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{State and condition preservation.}{15}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Construction and reuse.}{15}{section*.18}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Detection effectiveness. Paired counts and precision (\%) are separated by error category. MOPSA uses its supported subset of xxx records, covering xxx\% of the full pool.}}{16}{table.caption.13}\protected@file@percent }
+\newlabel{tab:detection}{{2}{16}{Detection effectiveness. Paired counts and precision (\%) are separated by error category. MOPSA uses its supported subset of xxx records, covering xxx\% of the full pool}{table.caption.13}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Resolution and cost. U, T, and S denote unresolved, timed-out, and unsupported targets. Time is the median per revision in seconds; total cost includes all runs. Outcome counts follow the aggregation rule in Section\nonbreakingspace \ref {sec:setup}.}}{16}{table.caption.14}\protected@file@percent }
+\newlabel{tab:resolution}{{3}{16}{Resolution and cost. U, T, and S denote unresolved, timed-out, and unsupported targets. Time is the median per revision in seconds; total cost includes all runs. Outcome counts follow the aggregation rule in Section~\ref {sec:setup}}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {paragraph}{Ordered relations and refinement.}{16}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}RQ3: New-Error Discovery}{16}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:rq3}{{4.4}{16}{RQ3: New-Error Discovery}{subsection.4.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Controlled mechanism comparisons. Each variant changes the named representation or procedure while retaining the common reporting criteria.}}{17}{table.caption.15}\protected@file@percent }
+\newlabel{tab:variants}{{4}{17}{Controlled mechanism comparisons. Each variant changes the named representation or procedure while retaining the common reporting criteria}{table.caption.15}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Mechanism results. Runtime and contract columns report paired detections for their respective error categories. Outcome counts follow the aggregation rule in Section\nonbreakingspace \ref {sec:setup}; total cost includes all runs.}}{17}{table.caption.16}\protected@file@percent }
+\newlabel{tab:mechanism-results}{{5}{17}{Mechanism results. Runtime and contract columns report paired detections for their respective error categories. Outcome counts follow the aggregation rule in Section~\ref {sec:setup}; total cost includes all runs}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Threats to Validity}{17}{section.5}\protected@file@percent }
+\newlabel{sec:threats}{{5}{17}{Threats to Validity}{section.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Construct validity.}{17}{section*.20}\protected@file@percent }
+\citation{pep484,pep544}
+\citation{mypyTypeNarrowing,pythonTypeNarrowing}
+\citation{xu2023gradual,sun2023dynamicObjects}
+\citation{oh2024pyinder}
+\@writefile{toc}{\contentsline {paragraph}{Internal validity.}{18}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{External validity.}{18}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Conclusion validity.}{18}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Related Work}{18}{section.6}\protected@file@percent }
+\newlabel{sec:relatedwork}{{6}{18}{Related Work}{section.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Python type checking and type-error detection.}{18}{section*.24}\protected@file@percent }
+\citation{sun2025pytir}
+\citation{pyflow2026}
+\citation{hoare1969axiomatic}
+\citation{godefroid2007compositional}
+\citation{cousot1977abstract}
+\citation{monat2020python}
+\bibstyle{ACM-Reference-Format}
+\bibdata{references}
+\bibcite{cousot1977abstract}{{1}{1977}{{Cousot and Cousot}}{{}}}
+\bibcite{dropboxMypy}{{2}{2019}{{Dropbox}}{{}}}
+\bibcite{godefroid2007compositional}{{3}{2007}{{Godefroid}}{{}}}
+\bibcite{pyflow2026}{{4}{2026}{{Gu et~al\mbox  {.}}}{{}}}
+\bibcite{hoare1969axiomatic}{{5}{1969}{{Hoare}}{{}}}
+\bibcite{pep544}{{6}{2017}{{Levkivskyi et~al\mbox  {.}}}{{}}}
+\@writefile{toc}{\contentsline {paragraph}{Type inference and generated annotations.}{19}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Relational and compositional program analysis.}{19}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{19}{section.7}\protected@file@percent }
+\newlabel{sec:conclusion}{{7}{19}{Conclusion}{section.7}{}}
+\@writefile{toc}{\contentsline {section}{References}{19}{section*.28}\protected@file@percent }
+\bibcite{pyreflyAdoption}{{7}{nda}{{Meta Platforms, Inc.}}{{}}}
+\bibcite{pyrefly}{{8}{ndb}{{Meta Platforms, Inc.}}{{}}}
+\bibcite{pyright}{{9}{nd}{{Microsoft}}{{}}}
+\bibcite{monat2020python}{{10}{2020}{{Monat et~al\mbox  {.}}}{{}}}
+\bibcite{mypyCommandLine}{{11}{nda}{{Mypy contributors}}{{}}}
+\bibcite{mypyTypeNarrowing}{{12}{ndb}{{Mypy contributors}}{{}}}
+\bibcite{oh2024pyinder}{{13}{2024}{{Oh and Oh}}{{}}}
+\bibcite{softwareFoundationsHoare}{{14}{2026}{{Pierce et~al\mbox  {.}}}{{}}}
+\bibcite{pythonDataModel}{{15}{nda}{{Python Software Foundation}}{{}}}
+\bibcite{pythonExecutionModel}{{16}{ndb}{{Python Software Foundation}}{{}}}
+\bibcite{pythonGlossary}{{17}{ndc}{{Python Software Foundation}}{{}}}
+\bibcite{pythonTypeNarrowing}{{18}{nd}{{Python typing contributors}}{{}}}
+\bibcite{sun2023dynamicObjects}{{19}{2023}{{Sun et~al\mbox  {.}}}{{}}}
+\bibcite{sun2025pytir}{{20}{2025}{{Sun et~al\mbox  {.}}}{{}}}
+\bibcite{pep484}{{21}{2014}{{van Rossum et~al\mbox  {.}}}{{}}}
+\bibcite{xu2023gradual}{{22}{2023}{{Xu et~al\mbox  {.}}}{{}}}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{4.65pt}
+\newlabel{tocindent2}{11.5pt}
+\newlabel{tocindent3}{18.35pt}
+\newlabel{tocindent4}{0pt}
+\newlabel{tocindent5}{0pt}
+\newlabel{TotPages}{{20}{20}{}{page.20}{}}
+\gdef \@abspage@last{20}

@@ -1,0 +1,342 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{22}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter does
+%%% not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+\makeatletter
+\@ifundefined{NAT@parse@date}{}{\let\NAT@parse@date@orig\NAT@parse@date}
+\@ifundefined{NAT@parse@date}{}{\def\NAT@parse@date#1#2#3#4#5#6@@{\NAT@parse@date@orig#1#2#3#4#5#6@@\def\NAT@tempyear{0000}\def\NAT@tempexlab{{?}}\ifx\NAT@year\NAT@tempyear\ifx\NAT@exlab\NAT@tempexlab\def\NAT@date{[n.\,d.]}\else\edef\NAT@date{[n.\,d.]\NAT@exlab}\fi\fi}}
+\makeatother
+
+\bibitem[Cousot and Cousot(1977)]%
+        {cousot1977abstract}
+\bibfield{author}{\bibinfo{person}{Patrick Cousot} {and}
+  \bibinfo{person}{Radhia Cousot}.} \bibinfo{year}{1977}\natexlab{}.
+\newblock \showarticletitle{Abstract Interpretation: A Unified Lattice Model
+  for Static Analysis of Programs by Construction or Approximation of
+  Fixpoints}. In \bibinfo{booktitle}{\emph{Proceedings of the 4th ACM
+  SIGACT-SIGPLAN Symposium on Principles of Programming Languages}}
+  \emph{(\bibinfo{series}{POPL '77})}. \bibinfo{publisher}{ACM},
+  \bibinfo{address}{New York, NY, USA}, \bibinfo{pages}{238--252}.
+\newblock
+\urldef\tempurl%
+\url{https://www.di.ens.fr/~cousot/COUSOTpapers/POPL77.shtml}
+\showURL{%
+\tempurl}
+
+
+\bibitem[{Dropbox}(2019)]%
+        {dropboxMypy}
+\bibfield{author}{\bibinfo{person}{{Dropbox}}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \bibinfo{title}{Our Journey to Type Checking 4 Million Lines of
+  Python}.
+\newblock
+\urldef\tempurl%
+\url{https://dropbox.tech/application/our-journey-to-type-checking-4-million-lines-of-python}
+\showURL{%
+Retrieved September 22, 2026 from \tempurl}
+
+
+\bibitem[Godefroid(2007)]%
+        {godefroid2007compositional}
+\bibfield{author}{\bibinfo{person}{Patrice Godefroid}.}
+  \bibinfo{year}{2007}\natexlab{}.
+\newblock \showarticletitle{Compositional Dynamic Test Generation}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 34th Annual ACM SIGPLAN-SIGACT
+  Symposium on Principles of Programming Languages}}
+  \emph{(\bibinfo{series}{POPL '07})}. \bibinfo{publisher}{Association for
+  Computing Machinery}, \bibinfo{address}{New York, NY, USA},
+  \bibinfo{pages}{47--54}.
+\newblock
+\urldef\tempurl%
+\url{https://patricegodefroid.github.io/public_psfiles/popl2007.pdf}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Gu et~al\mbox{.}(2026)]%
+        {pyflow2026}
+\bibfield{author}{\bibinfo{person}{Zinan Gu}, \bibinfo{person}{Haoxiang Yan},
+  {and} \bibinfo{person}{Peisen Yao}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{{PyFlow}: An Inter-procedural Static Analysis
+  Framework for {Python}}.
+\newblock
+\showeprint[arxiv]{2608.07026}
+\href{https://doi.org/10.48550/arXiv.2608.07026}{doi:\nolinkurl{10.48550/arXiv.2608.07026}}
+
+
+\bibitem[Hoare(1969)]%
+        {hoare1969axiomatic}
+\bibfield{author}{\bibinfo{person}{C.~A.~R. Hoare}.}
+  \bibinfo{year}{1969}\natexlab{}.
+\newblock \showarticletitle{An Axiomatic Basis for Computer Programming}.
+\newblock \bibinfo{journal}{\emph{Commun. ACM}} \bibinfo{volume}{12},
+  \bibinfo{number}{10} (\bibinfo{year}{1969}), \bibinfo{pages}{576--580, 583}.
+\newblock
+\href{https://doi.org/10.1145/363235.363259}{doi:\nolinkurl{10.1145/363235.363259}}
+
+
+\bibitem[Levkivskyi et~al\mbox{.}(2017)]%
+        {pep544}
+\bibfield{author}{\bibinfo{person}{Ivan Levkivskyi}, \bibinfo{person}{Jukka
+  Lehtosalo}, {and} \bibinfo{person}{{\L}ukasz Langa}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \bibinfo{title}{{PEP 544} -- Protocols: Structural Subtyping (Static
+  Duck Typing)}.
+\newblock
+\urldef\tempurl%
+\url{https://peps.python.org/pep-0544/}
+\showURL{%
+Retrieved September 9, 2026 from \tempurl}
+
+
+\bibitem[{Meta Platforms, Inc.}(nda)]%
+        {pyreflyAdoption}
+\bibfield{author}{\bibinfo{person}{{Meta Platforms, Inc.}}}
+  \bibinfo{year}{{n.d.}}\natexlab{a}.
+\newblock \bibinfo{title}{{Pyrefly}}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/facebook/pyrefly}
+\showURL{%
+Retrieved September 22, 2026 from \tempurl}
+
+
+\bibitem[{Meta Platforms, Inc.}(ndb)]%
+        {pyrefly}
+\bibfield{author}{\bibinfo{person}{{Meta Platforms, Inc.}}}
+  \bibinfo{year}{{n.d.}}\natexlab{b}.
+\newblock \bibinfo{title}{{Pyrefly}: A Fast {Python} Type Checker and Language
+  Server}.
+\newblock
+\urldef\tempurl%
+\url{https://pyrefly.org/}
+\showURL{%
+Retrieved September 22, 2026 from \tempurl}
+
+
+\bibitem[{Microsoft}(nd)]%
+        {pyright}
+\bibfield{author}{\bibinfo{person}{{Microsoft}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{}.
+\newblock \bibinfo{title}{{Pyright}: Static Type Checker for {Python}}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/microsoft/pyright}
+\showURL{%
+Retrieved September 22, 2026 from \tempurl}
+
+
+\bibitem[Monat et~al\mbox{.}(2020)]%
+        {monat2020python}
+\bibfield{author}{\bibinfo{person}{Rapha{\"e}l Monat},
+  \bibinfo{person}{Abdelraouf Ouadjaout}, {and} \bibinfo{person}{Antoine
+  Min{\'e}}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Static Type Analysis by Abstract Interpretation of
+  {Python} Programs}. In \bibinfo{booktitle}{\emph{34th European Conference on
+  Object-Oriented Programming}} \emph{(\bibinfo{series}{Leibniz International
+  Proceedings in Informatics}, Vol.~\bibinfo{volume}{166})}.
+  \bibinfo{publisher}{Schloss Dagstuhl -- Leibniz-Zentrum f{\"u}r Informatik},
+  \bibinfo{address}{Dagstuhl, Germany}, \bibinfo{pages}{17:1--17:29}.
+\newblock
+\href{https://doi.org/10.4230/LIPIcs.ECOOP.2020.17}{doi:\nolinkurl{10.4230/LIPIcs.ECOOP.2020.17}}
+
+
+\bibitem[{Mypy contributors}(nda)]%
+        {mypyCommandLine}
+\bibfield{author}{\bibinfo{person}{{Mypy contributors}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{a}.
+\newblock \bibinfo{title}{The mypy Command Line}.
+\newblock \bibinfo{howpublished}{Mypy Documentation}.
+\newblock
+\urldef\tempurl%
+\url{https://mypy.readthedocs.io/en/stable/command_line.html}
+\showURL{%
+Retrieved September 22, 2026 from \tempurl}
+
+
+\bibitem[{Mypy contributors}(ndb)]%
+        {mypyTypeNarrowing}
+\bibfield{author}{\bibinfo{person}{{Mypy contributors}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{b}.
+\newblock \bibinfo{title}{Type Narrowing}.
+\newblock \bibinfo{howpublished}{Mypy Documentation}.
+\newblock
+\urldef\tempurl%
+\url{https://mypy.readthedocs.io/en/stable/type_narrowing.html}
+\showURL{%
+Retrieved September 16, 2026 from \tempurl}
+
+
+\bibitem[Oh and Oh(2024)]%
+        {oh2024pyinder}
+\bibfield{author}{\bibinfo{person}{Wonseok Oh} {and} \bibinfo{person}{Hakjoo
+  Oh}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Towards Effective Static Type-Error Detection for
+  {Python}}. In \bibinfo{booktitle}{\emph{Proceedings of the 39th IEEE/ACM
+  International Conference on Automated Software Engineering}}
+  \emph{(\bibinfo{series}{ASE '24})}. \bibinfo{publisher}{Association for
+  Computing Machinery}, \bibinfo{pages}{1808--1820}.
+\newblock
+\href{https://doi.org/10.1145/3691620.3695545}{doi:\nolinkurl{10.1145/3691620.3695545}}
+
+
+\bibitem[Pierce et~al\mbox{.}(2026)]%
+        {softwareFoundationsHoare}
+\bibfield{author}{\bibinfo{person}{Benjamin~C. Pierce},
+  \bibinfo{person}{Arthur~Azevedo de Amorim}, \bibinfo{person}{Chris
+  Casinghino}, \bibinfo{person}{Marco Gaboardi}, \bibinfo{person}{Michael
+  Greenberg}, \bibinfo{person}{C{\u a}t{\u a}lin Hri{\c t}cu},
+  \bibinfo{person}{Vilhelm Sj{\"o}berg}, \bibinfo{person}{Andrew Tolmach},
+  {and} \bibinfo{person}{Brent Yorgey}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{Hoare Logic, Part {I}}.
+\newblock \bibinfo{howpublished}{Software Foundations, Volume 2: Programming
+  Language Foundations}.
+\newblock
+\urldef\tempurl%
+\url{https://softwarefoundations.cis.upenn.edu/plf-current/Hoare.html}
+\showURL{%
+Retrieved September 16, 2026 from \tempurl}
+\newblock
+\shownote{Version 7.1}.
+
+
+\bibitem[{Python Software Foundation}(nda)]%
+        {pythonDataModel}
+\bibfield{author}{\bibinfo{person}{{Python Software Foundation}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{a}.
+\newblock \bibinfo{title}{Data Model}.
+\newblock \bibinfo{howpublished}{Python Language Reference}.
+\newblock
+\urldef\tempurl%
+\url{https://docs.python.org/3/reference/datamodel.html}
+\showURL{%
+Retrieved September 15, 2026 from \tempurl}
+
+
+\bibitem[{Python Software Foundation}(ndb)]%
+        {pythonExecutionModel}
+\bibfield{author}{\bibinfo{person}{{Python Software Foundation}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{b}.
+\newblock \bibinfo{title}{Execution Model}.
+\newblock \bibinfo{howpublished}{Python Language Reference}.
+\newblock
+\urldef\tempurl%
+\url{https://docs.python.org/3/reference/executionmodel.html}
+\showURL{%
+Retrieved September 16, 2026 from \tempurl}
+
+
+\bibitem[{Python Software Foundation}(ndc)]%
+        {pythonGlossary}
+\bibfield{author}{\bibinfo{person}{{Python Software Foundation}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{c}.
+\newblock \bibinfo{title}{Glossary: Duck-Typing}.
+\newblock \bibinfo{howpublished}{Python Documentation}.
+\newblock
+\urldef\tempurl%
+\url{https://docs.python.org/3/glossary.html#term-duck-typing}
+\showURL{%
+Retrieved September 16, 2026 from \tempurl}
+
+
+\bibitem[{Python typing contributors}(nd)]%
+        {pythonTypeNarrowing}
+\bibfield{author}{\bibinfo{person}{{Python typing contributors}}.}
+  \bibinfo{year}{{n.d.}}\natexlab{}.
+\newblock \bibinfo{title}{Type Narrowing}.
+\newblock \bibinfo{howpublished}{Python Typing Documentation}.
+\newblock
+\urldef\tempurl%
+\url{https://typing.python.org/en/latest/guides/type_narrowing.html}
+\showURL{%
+Retrieved September 16, 2026 from \tempurl}
+
+
+\bibitem[Sun et~al\mbox{.}(2023)]%
+        {sun2023dynamicObjects}
+\bibfield{author}{\bibinfo{person}{Ke Sun}, \bibinfo{person}{Sheng Chen},
+  \bibinfo{person}{Meng Wang}, {and} \bibinfo{person}{Dan Hao}.}
+  \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{What Types Are Needed for Typing Dynamic Objects? A
+  {Python}-Based Empirical Study}. In \bibinfo{booktitle}{\emph{Programming
+  Languages and Systems}}. \bibinfo{publisher}{Springer Nature Singapore},
+  \bibinfo{pages}{24--45}.
+\newblock
+\href{https://doi.org/10.1007/978-981-99-8311-7_2}{doi:\nolinkurl{10.1007/978-981-99-8311-7_2}}
+
+
+\bibitem[Sun et~al\mbox{.}(2025)]%
+        {sun2025pytir}
+\bibfield{author}{\bibinfo{person}{Shuo Sun}, \bibinfo{person}{Shixin Zhang},
+  \bibinfo{person}{Jiwei Yan}, \bibinfo{person}{Jun Yan}, {and}
+  \bibinfo{person}{Jian Zhang}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Co-Evolution of Types and Dependencies: Towards
+  Repository-Level Type Inference for {Python} Code}.
+\newblock
+\showeprint[arxiv]{2512.21591}~[cs.SE]
+\href{https://doi.org/10.48550/arXiv.2512.21591}{doi:\nolinkurl{10.48550/arXiv.2512.21591}}
+
+
+\bibitem[van Rossum et~al\mbox{.}(2014)]%
+        {pep484}
+\bibfield{author}{\bibinfo{person}{Guido van Rossum}, \bibinfo{person}{Jukka
+  Lehtosalo}, {and} \bibinfo{person}{{\L}ukasz Langa}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{title}{{PEP 484} -- Type Hints}.
+\newblock
+\urldef\tempurl%
+\url{https://peps.python.org/pep-0484/}
+\showURL{%
+Retrieved September 9, 2026 from \tempurl}
+
+
+\bibitem[Xu et~al\mbox{.}(2023)]%
+        {xu2023gradual}
+\bibfield{author}{\bibinfo{person}{Wenjie Xu}, \bibinfo{person}{Lin Chen},
+  \bibinfo{person}{Chenghao Su}, \bibinfo{person}{Yimeng Guo},
+  \bibinfo{person}{Yanhui Li}, \bibinfo{person}{Yuming Zhou}, {and}
+  \bibinfo{person}{Baowen Xu}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{How Well Static Type Checkers Work with Gradual
+  Typing? A Case Study on {Python}}. In \bibinfo{booktitle}{\emph{Proceedings
+  of the 31st IEEE/ACM International Conference on Program Comprehension}}
+  \emph{(\bibinfo{series}{ICPC '23})}. \bibinfo{publisher}{IEEE},
+  \bibinfo{pages}{242--253}.
+\newblock
+\href{https://doi.org/10.1109/ICPC58990.2023.00039}{doi:\nolinkurl{10.1109/ICPC58990.2023.00039}}
+
+
+\end{thebibliography}
