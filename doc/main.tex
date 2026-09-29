@@ -2,7 +2,10 @@
 % latexmk -xelatex -outdir=../build main.tex
 \documentclass[acmsmall,screen,anonymous,review,nonacm]{acmart}
 \input{preamble}
+\input{macro}
 
+\newcommand{\jinlong}[1]{\color{red} {JL: #1 :LJ}\color{black}}
+\newcommand{\yjw}[1]{\color{blue} { Y: #1 :Y }\color{black}}
 \begin{document}
 \title{Detecting Python Type Errors through Interprocedural Type-State Analysis}
 \keywords{Python, type errors, type-state relations, interprocedural analysis,

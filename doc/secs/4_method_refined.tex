@@ -75,8 +75,40 @@ summary. It must describe the change of type to values shared with the caller, a
 it must retain the conditions under which each change occurs. 
 PyTT therefore needs a summary that connects the incoming type-state and
 execution conditions to the types established by the call.
+\jinlong{
+Before defining the contract, we introduce the abstraction that it
+relates. A \emph{type-state} is a simplified form of program state. It
+abstracts away from the concrete values that a program manipulates and
+retains only the type information required by the checks of subsequent
+operations. At a program point, a type-state describes the type of a
+parameter, a local or global variable, or a class or instance attribute.
+At point~1 of Figure~\ref{fig:motivating-example}, for example, the
+type-state records that the message body holds a string. Because a
+function can be called under different type-states, PyTT describes its
+behavior as a relation between the type-states at its entry and its exit,
+rather than in terms of particular values.
+}
 
-\subsubsection{Representing Calling Conditions and Updates}
+\jinlong{
+  \begin{definition}[Path-sensitive Type Contract (PSTC)]
+  For a function $\Mm$, its path-sensitive type contract is
+  \[
+      \Cc \subseteq \Aa_{\Mm} \times \Mm \times \Aa_{\Mm},
+  \]
+  where $\Aa_{\Mm}$ is the set of assertions among the \textit{type-states} of the
+  variables related to $\Mm$.
+  For each \emph{path contract} $c=(p,m,q)\in\Cc$, 
+  \begin{itemize}
+    \item $p\in\Aa_{\Mm}$ is the entry assertion, describing the type-state required at entry to the function; 
+    \item $m\in\Mm$ is the path description, recording the guards, operation requirements, calls, and updates along one execution path in execution order; 
+    \item $q\in\Aa_{\Mm}$ is the exit assertion, describing the type-state and the return value established when that path returns normally. 
+  \end{itemize}
+  % Different cases of a function describe the type-state changes established under different entry conditions and execution paths.
+  \end{definition}
+}
+
+% 建议删除小标题：本节不再划分小节，内容并入连续段落
+% \subsubsection{Representing Calling Conditions and Updates}
 
 % [R08]
 To express changes beyond the return value, the summary must refer to the
@@ -106,7 +138,10 @@ these assertions keeps the resulting field type connected to the
 calling condition that establishes it. Branch conditions remain relevant
 because identical entry types need not imply identical execution paths.
 
-\subsubsection{Connecting Assertions through Execution Paths}
+
+% 建议删除小标题：本节不再划分小节，内容并入连续段落
+% \subsubsection{Connecting Assertions through Execution Paths}
+
 
 % [R10]
 Entry and exit assertions describe the conditional change needed by a
