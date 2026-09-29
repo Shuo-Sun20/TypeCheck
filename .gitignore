@@ -1,0 +1,48 @@
+# Generated documents (including compiled PDFs)
+*.pdf
+*.dvi
+*.xdv
+*.ps
+
+# LaTeX auxiliary and log files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.idx
+*.ilg
+*.ind
+*.ist
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex
+*.synctex.gz
+*.toc
+*.vrb
+*.xdy
+
+# Generated bibliography/index helpers
+*.acn
+*.acr
+*.alg
+*.brf
+*.loa
+
+# Temporary and backup files
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
