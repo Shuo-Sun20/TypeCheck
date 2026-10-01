@@ -97,7 +97,7 @@ rather than in terms of particular values.
   \]
   where $\Aa_{\Mm}$ is the set of assertions among the \textit{type-states} of the
   variables related to $\Mm$.
-  For each \emph{path contract} $c=(p,m,q)\in\Cc$, 
+  Each $c=(p,m,q)\in\Cc$ is a path contract representing the type contract on a specific execution path, where
   \begin{itemize}
     \item $p\in\Aa_{\Mm}$ is the entry assertion, describing the type-state required at entry to the function; 
     \item $m\in\Mm$ is the path description, recording the guards, operation requirements, calls, and updates along one execution path in execution order; 

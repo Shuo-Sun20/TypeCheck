@@ -1,16 +1,15 @@
 \section{Introduction}
 \label{sec:introduction}
 
-
-Python's dynamic type system offers developers considerable flexibility
-and enables rapid development. 
-%第一句能不能直接写“Python的类型灵活，可同时支持多种类型并支持其动态变化。”
-However, it also allows type errors to
-%这里用allows 是不是有点奇怪？应该是它“造成”了xxx，
-remain undetected until runtime. These errors can interrupt program
+Python's dynamic type system allows variables to change type at
+runtime and operations to accept different input types, offering
+developers considerable flexibility.
+However, this flexibility can also lead to subtle type errors
+that remain undetected until runtime.
+These errors can interrupt program
 execution and cause application failures, compromising software
-reliability. Consequently, substantial effort has been devoted
-%这里用 Consequently会不会不妥当？我不清楚Consequently这个词的色彩会不会偏负面？
+reliability.
+Consequently, substantial effort has been devoted
 to static type-error detection for Python, aiming to identify
 such errors before execution.
 
@@ -41,7 +40,7 @@ which are commonly encountered in real-world codebases.
 This limitation underscores a persistent gap between current research and its 
 applicability to real-world Python repositories.
 
-To address this gap, we aim to propose a \textbf{type-transition-aware type error detection}.
+To address this gap, we aim to propose a \textbf{type-transition-aware type error detection} approach.
 Leveraging the superior semantic understanding capabilities of Large Language Models (LLMs), we
 adopt LLMs as the core detection engine of our approach. Based on our investigation, we have
 identified three key challenges to our approach.
